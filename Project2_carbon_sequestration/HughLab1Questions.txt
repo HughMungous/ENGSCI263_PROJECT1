@@ -1,0 +1,37 @@
+Why:
+
+	Stakeholders:
+	
+	- Contact Energy Ltd. (CEL)
+	
+	Interested in minimising costs and maximising returns. It can be assumed that they will push for the cheapest solution available for them, with the environmental 
+	impact of said solution unknown. If the proposed restrictions deem the project unprofitable then they may cancel, resulting in no benefits for all parties.
+	
+	- Waikato Regioinal Council (WRC)
+	
+	Interested in appeasing all parties and increasing the quality of life for the region, they are more likely to approve as the benefits to the community increase
+	and the detriments to the environment decrease. However, as their positions are subject to the opinions of the public, they may change their decision depending on
+	media coverage and public perception.
+
+	- Ngati Tahu (NT)
+	
+	Local Iwi, interested in maintaining the environmental balance/ ecocentric.
+	The current proposal will be vetoed by them due to the issue of groundwater contamination, although this will be necessitated by environmental law as well.
+
+	Outcomes:
+
+	It seems that the most likely outcome is one which meets the minimum environmental regulations, as at the time of the brief the only opposing party is NT.
+	However, this may be subject to change depending on changing public opinions during the approval process and the results of the modelling request.
+
+
+How:
+
+	A computer model may allow the involved parties to measure the following:
+	
+	- The efficacy of the proposal with regard to the increase in power production.
+	- The sustainability of the practice (overall CO2 change in atmospheric and carbonate concentrations)
+	- The plausibility of further/increasing CO2 leaks into the groundwater and the veracity of the claims made by CEL and NT
+	- The implications for the existing infrastructure
+
+Given:
+
