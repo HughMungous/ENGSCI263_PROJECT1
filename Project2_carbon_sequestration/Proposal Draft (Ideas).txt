@@ -1,0 +1,16 @@
+Why?
+Addition to Hugh's stakeholders is the Forestry Industry will benefit due the use of the biomass to fuel the CO2 injection. They would most likely 
+want the CO2 injection rate to increase as this would mean they would gain more profit selling more biomass to CEL.
+How?
+Covered by Hugh
+Given?
+Data files given:
+	CO2 injection rates in kg/s from 1998 measured every year
+	CO2 weight percentage from 1980 measured every two years
+	Pressure in the field in MPa measure from 1967 rate of measurement is variable with times between measurements becoming larger 
+	toward the end
+	Extraction rates in kg/s from 1966 measure every year
+	
+Assume?
+
+Formulate?
