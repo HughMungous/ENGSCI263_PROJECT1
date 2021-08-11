@@ -88,22 +88,20 @@ def MSPE_A():
 	pars = [netFlow,best_A,best_B,best_C,1]
 	sol_time, sol_pressure = solve_ode(pressure_model, time[0], time[-1], dt , Pressure[0], pars)
 
-	f, ax2 = plt.subplots(1, 1)
-	ax2.plot(sol_time,sol_pressure, 'b', label = 'ODE')
-	ax2.plot(time,Pressure, 'r', label = 'DATA')
-	ax2.set_title("Best fit A coefficient")
-	ax2.legend()
-	plt.show()
-
+	# Printout of results
 	txt = "Best coefficient {} is {}"
 	print(txt.format("A",best_A))
 	print(txt.format("B",best_B))
 	print(txt.format("C",best_C))
 	print("Mean Squared Error is {}".format(MSPE_best))
 
-
 	
-
+	f, ax2 = plt.subplots(1, 1)
+	ax2.plot(sol_time,sol_pressure, 'b', label = 'ODE')
+	ax2.plot(time,Pressure, 'r', label = 'DATA')
+	ax2.set_title("Best fit A coefficient")
+	ax2.legend()
+	plt.show()
 		
 
 	return best_A,best_B,best_C
