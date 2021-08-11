@@ -4,12 +4,13 @@ from numpy.core.numeric import NaN
 from matplotlib import pyplot as plt
 from numpy.lib.function_base import interp
 from scipy.interpolate import interp1d
+import itertools
 
 
 
 def main():
 	time, Pressure ,netFlow = getPressureData()
-	pars = [netFlow,(9.81/(0.15*10000000)),0.00000003,0.0068,1]
+	pars = [netFlow,0.0012653061224489797,0.09836734693877551,0.0032244897959183673,1]
 
 
 	# q is variable so need to increment the different flows 
@@ -23,6 +24,7 @@ def main():
 	ax.plot(sol_time,sol_pressure, 'b', label = 'ODE')
 	ax.plot(time,Pressure, 'r', label = 'DATA')
 	ax.legend()
+	ax.set_title("Pressure flow in the Orakei geothermal field.")
 	plt.show()
 	return
 
@@ -37,7 +39,11 @@ def MSPE_A():
 	Returns : 
 	---------
 	A : float
-		Best coefficient for ODE
+		Best parameter one for ODE model
+	B : float
+		Best parameter two for ODE model
+	C : float
+		Best parameter three for ODE model
 
 	Generates plots of various ODE models, best ODE model, and MSPE wrt. A    
 	
@@ -45,34 +51,41 @@ def MSPE_A():
 
 	# Experimental Data, defining testing range for coefficient, constants
 	time, Pressure ,netFlow = getPressureData()
-	A = np.linspace(100.0,10000000,500)
-	pars = [netFlow,(9.81/(0.15*A)),0.00000003,0.0068,1]
+	A = np.linspace(0.001,0.0015,50)
+	# A = 9.81/(0.15*A)
+	B = np.linspace(0.08,0.11,50)
+	C = np.linspace(0.002,0.006,50)
 	dt = 0.5
 	MSPE_best = float('inf')
 	best_A = 1000
+	best_B = 1000
+	best_C = 1000
 
-	# Modelling ODE for each value and 
-	for i in range(100):
 
-		# ODE
-		A_coef = A[i]
-		pars = [netFlow,(9.81/(0.15*A_coef)),0.00000003,0.0068,1]
+	# Modelling ODE for each combination of A,B,C
+	for A_i,B_i,C_i in itertools.product(A,B,C):
+		pars = [netFlow,A_i,B_i,C_i,1]
 		sol_time, sol_pressure = solve_ode(pressure_model, time[0], time[-1], dt , Pressure[0], pars)
 
-	# Interpolating for comparison
+		# Interpolating for comparison of MSE
 		f = interp1d(sol_time,sol_pressure)
 		analytic_pressure = f(time)
 		diff_array = np.subtract(analytic_pressure,Pressure)
 		squared_array = np.square(diff_array)
 		MSPE = squared_array.mean()
 
+		print(A_i)
+
 		if (MSPE < MSPE_best):
 			MSPE_best = MSPE
-			best_A = A_coef
-		
+			best_A = A_i
+			best_B = B_i
+			best_C = C_i
 
+
+	
 	# Plotting best fit ODE
-	pars = [netFlow,(9.81/(0.15*best_A)),0.00000003,0.0068,1]
+	pars = [netFlow,best_A,best_B,best_C,1]
 	sol_time, sol_pressure = solve_ode(pressure_model, time[0], time[-1], dt , Pressure[0], pars)
 
 	f, ax2 = plt.subplots(1, 1)
@@ -82,14 +95,18 @@ def MSPE_A():
 	ax2.legend()
 	plt.show()
 
-	print(best_A)
-	return
+	txt = "Best coefficient {} is {}"
+	print(txt.format("A",best_A))
+	print(txt.format("B",best_B))
+	print(txt.format("C",best_C))
+	print("Mean Squared Error is {}".format(MSPE_best))
+
 
 	
 
 		
 
-	return best_a
+	return best_A,best_B,best_C
 
 def pressure_model(t, P, q, a, b, c, dqdt, P0):
 	''' Return the derivative dx/dt at time, t, for given parameters.
@@ -213,6 +230,6 @@ def getPressureData():
 	return t, P, net
 
 if __name__ == "__main__":
-	# main()
-	MSPE_A()
+	 main()
+	# MSPE_A()
 	
