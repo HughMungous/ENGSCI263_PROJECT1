@@ -1,18 +1,25 @@
 # The start of the Modelling stuff I guess
 import numpy as np
 from numpy.core.numeric import NaN
+from matplotlib import pyplot as plt
+
 
 
 def main():
-    time, netFlow ,Pressure = getPressureData()
-    # pars = [q,a,b,c,dqdt]
+    time, Pressure ,netFlow = getPressureData()
+    pars = [netFlow,(9.81/(0.15*10000000)),0.000000003,0.0068,1]
     # q is variable so need to increment the different flows 
     # a,b,c are some constants we define
     # dqdt I assume is something we solve for depending on the change in flow rates
-
     # this will solve the ODE with the different net flow values
-    #for i in range(len(netFlow)):
-        #solve_ode(pressure_model, t0 = time[0], t1=time[-1], dt = 1, x0 = Pressure[0], )
+    dt = 0.5
+    sol = solve_ode(pressure_model, time[0], time[-1], dt , Pressure[0], pars)
+
+    f, ax = plt.subplots(1, 1)
+    ax.plot(sol[0],sol[1], 'b', label = 'ODE')
+    ax.plot(time,Pressure, 'r.', label = 'DATA')
+    ax.legend()
+    plt.show()
     return
 
 def pressure_model(t, P, q, a, b, c, dqdt, P0):
@@ -84,7 +91,10 @@ def solve_ode(f, t0, t1, dt, x0, pars):
     ts = t0+np.arange(nt+1)*dt
     ys = 0.*ts
     ys[0] = x0
+    netFlow = pars[0]
     for k in range(nt):
+        pars[0] = netFlow[k]
+        pars[4] = (netFlow[k+1] - netFlow[k])/(ts[k+1]-ts[k])
         ys[k + 1] = improved_euler_step(f, ts[k], ys[k], dt, x0, pars)
     return ts,ys
 
