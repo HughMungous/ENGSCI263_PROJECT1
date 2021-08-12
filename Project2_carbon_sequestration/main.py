@@ -30,7 +30,7 @@ def main():
 	# in order for pars
 	# qCO2, a, b, d, P, P0, M0
 	pars = [CO2_injec,1123412341351354,1,.3,Pressure,Pressure[0],8555.23459874256]
-	dt = 0.5
+	dt = 0.465
 	sol_time, sol_conc = solve_Solute_ode(SoluteModel, time[0], time[-1], dt , conc[0], pars)
 	f, ax = plt.subplots(1, 1)	
 	ax.plot(sol_time,sol_conc, 'b', label = 'ODE')
@@ -162,8 +162,10 @@ def SoluteModel(t, C, qC02, a, b, d, P, P0, M0, C0):
 		Cdash = C
 	else:
 		Cdash = C0
-	######need to add a qLoss term and subtract that from qCO2#######
-	dCdt = ((1 - C)*(qC02))/M0 - (b/(a*M0))*(P-P0)*(Cdash-C) - d*(C-C0)
+
+	qloss = (b/a)*(P-P0)*Cdash*t
+	qC02 = qC02 - qloss
+	dCdt = ((1 - C)*qC02)/M0 - (b/(a*M0))*(P-P0)*(Cdash-C) - d*(C-C0)
 	return dCdt
 
 def solve_Solute_ode(f, t0, t1, dt, x0, pars):
