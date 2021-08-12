@@ -7,7 +7,7 @@ from matplotlib import pyplot as plt
 
 def main():
     time, Pressure ,netFlow = getPressureData()
-    pars = [netFlow,(9.81/(0.15*10000000)),0.00000003,0.0068,1]
+    pars = [netFlow,0.0012653061224489797,0.09836734693877551,0.0032244897959183673,1]
     # q is variable so need to increment the different flows 
     # a,b,c are some constants we define
     # dqdt I assume is something we solve for depending on the change in flow rates
