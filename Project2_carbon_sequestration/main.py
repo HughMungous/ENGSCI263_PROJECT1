@@ -162,7 +162,7 @@ def SoluteModel(t, C, qC02, a, b, d, P, P0, M0, C0):
 		Cdash = C
 	else:
 		Cdash = C0
-
+	######need to add a qLoss term and subtract that from qCO2#######
 	dCdt = ((1 - C)*(qC02))/M0 - (b/(a*M0))*(P-P0)*(Cdash-C) - d*(C-C0)
 	return dCdt
 
