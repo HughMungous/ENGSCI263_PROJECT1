@@ -12,13 +12,12 @@ def main():
 	time, Pressure ,netFlow = getPressureData()
 	pars = [netFlow,0.0012653061224489797,0.09836734693877551,0.0032244897959183673,1]
 
-
 	# q is variable so need to increment the different flows 
 	# a,b,c are some constants we define
 	# dqdt I assume is something we solve for depending on the change in flow rates
 	# this will solve the ODE with the different net flow values
 	dt = 0.5
-	sol_time, sol_pressure = solve_ode(pressure_model, time[0], time[-1], dt , Pressure[0], pars)
+	sol_time, sol_pressure = solve_Pressure_ode(pressure_model, time[0], time[-1], dt , Pressure[0], pars)
 
 	f, ax = plt.subplots(1, 1)
 	ax.plot(sol_time,sol_pressure, 'b', label = 'ODE')
@@ -26,7 +25,32 @@ def main():
 	ax.legend()
 	ax.set_title("Pressure flow in the Orakei geothermal field.")
 	plt.show()
+
+	time, Pressure, CO2_injec, conc = getConcentrationData()
+	# in order for pars
+	# qCO2, a, b, d, P, P0, M0
+	pars = [CO2_injec,1123412341351354,1,.3,Pressure,Pressure[0],8555.23459874256]
+	dt = 0.5
+	sol_time, sol_conc = solve_Solute_ode(SoluteModel, time[0], time[-1], dt , conc[0], pars)
+	f, ax = plt.subplots(1, 1)	
+	ax.plot(sol_time,sol_conc, 'b', label = 'ODE')
+	ax.plot(time,conc, 'r', label = 'DATA')
+	ax.legend()
+	ax.set_title("Pressure flow in the Orakei geothermal field.")
+	plt.show()
 	return
+
+def getConcentrationData():
+	vals = np.genfromtxt('output.csv', delimiter = ',', skip_header= 1, missing_values= 0)
+	# extracts the relevant data
+	t = vals[:,1]
+	P = vals[:,3]
+	injec = vals[:,4]
+	CO2_conc = vals[:,5]
+	CO2_conc[np.isnan(CO2_conc)] = 0.03
+	injec[np.isnan(injec)] = 0
+	P[0] = P[1]
+	return t, P, injec, CO2_conc
 
 def MSPE_A():
 	'''
@@ -65,7 +89,7 @@ def MSPE_A():
 	# Modelling ODE for each combination of A,B,C
 	for A_i,B_i,C_i in itertools.product(A,B,C):
 		pars = [netFlow,A_i,B_i,C_i,1]
-		sol_time, sol_pressure = solve_ode(pressure_model, time[0], time[-1], dt , Pressure[0], pars)
+		sol_time, sol_pressure = solve_Pressure_ode(pressure_model, time[0], time[-1], dt , Pressure[0], pars)
 
 		# Interpolating for comparison of MSE
 		f = interp1d(sol_time,sol_pressure)
@@ -86,7 +110,7 @@ def MSPE_A():
 	
 	# Plotting best fit ODE
 	pars = [netFlow,best_A,best_B,best_C,1]
-	sol_time, sol_pressure = solve_ode(pressure_model, time[0], time[-1], dt , Pressure[0], pars)
+	sol_time, sol_pressure = solve_Pressure_ode(pressure_model, time[0], time[-1], dt , Pressure[0], pars)
 
 	# Printout of results
 	txt = "Best coefficient {} is {}"
@@ -133,7 +157,30 @@ def pressure_model(t, P, q, a, b, c, dqdt, P0):
 	dPdt =  -a*q - b*(P-P0) - c*dqdt
 	return dPdt
 
-def solve_ode(f, t0, t1, dt, x0, pars):
+def SoluteModel(t, C, qC02, a, b, d, P, P0, M0, C0):
+	if (P > P0):
+		Cdash = C
+	else:
+		Cdash = C0
+
+	dCdt = ((1 - C)*(qC02))/M0 - (b/(a*M0))*(P-P0)*(Cdash-C) - d*(C-C0)
+	return dCdt
+
+def solve_Solute_ode(f, t0, t1, dt, x0, pars):
+	nt = int(np.ceil((t1-t0)/dt))
+	ts = t0+np.arange(nt+1)*dt
+	ys = 0.*ts
+	ys[0] = x0
+	qC02 = pars[0]
+	Pressure = pars[4]
+	for k in range(nt):
+		pars[0] = qC02[k]
+		pars[4] = Pressure[k]
+		ys[k + 1] = improved_euler_step(f, ts[k], ys[k], dt, x0, pars)
+	return ts,ys
+
+
+def solve_Pressure_ode(f, t0, t1, dt, x0, pars):
 	''' Solve an ODE numerically.
 
 		Parameters:
