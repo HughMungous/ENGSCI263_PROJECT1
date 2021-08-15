@@ -41,15 +41,40 @@ def main():
 	return
 
 def getConcentrationData():
+	'''
+	Reads all relevant data from output.csv file
+	Parameters : 
+	------------
+	None
+
+	Returns : 
+	---------
+	t : np.array
+		Time data that matches with other relevant quantities 
+	P : np.array
+		Relevant Pressure data in MPa
+	injec : np.array
+		Relevant CO2 injection data in kg/s
+	CO2_conc : np.array
+		Relevant concentrations of CO2 in wt %
+
+	Notes :
+	------
+	CO2 concentration before injection is assumed to be natural state
+	of 3 wt %. 
+	'''
+
+	# reads all the data from excel file
 	vals = np.genfromtxt('output.csv', delimiter = ',', skip_header= 1, missing_values= 0)
 	# extracts the relevant data
-	t = vals[:,1]
-	P = vals[:,3]
-	injec = vals[:,4]
-	CO2_conc = vals[:,5]
-	CO2_conc[np.isnan(CO2_conc)] = 0.03
-	injec[np.isnan(injec)] = 0
+	t = vals[:,1] # time values
+	P = vals[:,3] # Pressure values
+	injec = vals[:,4] # CO2 injection values 
+	CO2_conc = vals[:,5] # CO2 concentration values
+	CO2_conc[np.isnan(CO2_conc)] = 0.03 # inputting natural state 
+	injec[np.isnan(injec)] = 0 # absence of injection values is 0
 	P[0] = P[1]
+
 	return t, P, injec, CO2_conc
 
 def MSPE_A():
@@ -131,10 +156,12 @@ def MSPE_A():
 	return best_A,best_B,best_C
 
 def pressure_model(t, P, q, a, b, c, dqdt, P0):
-	''' Return the derivative dx/dt at time, t, for given parameters.
+	''' Return the Pressure derivative dP/dt at time, t, for given parameters.
 
 		Parameters:
 		-----------
+		t : float
+			Independent variable.
 		P : float
 			Dependent variable.
 		q : float
@@ -143,12 +170,12 @@ def pressure_model(t, P, q, a, b, c, dqdt, P0):
 			Source/sink strength parameter.
 		b : float
 			Recharge strength parameter.
-		P0 : float
-			Ambient value of dependent variable.
 		c  : float
 			Recharge strength parameter
 		dqdt : float
 			Rate of change of flow rate
+		P0 : float
+			Ambient value of dependent variable.
 		Returns:
 		--------
 		dPdt : float
@@ -158,14 +185,47 @@ def pressure_model(t, P, q, a, b, c, dqdt, P0):
 	return dPdt
 
 def SoluteModel(t, C, qC02, a, b, d, P, P0, M0, C0):
+	''' Return the Solute derivative dC/dt at time, t, for given parameters.
+
+		Parameters:
+		-----------
+		t : float
+			Independent variable.
+		C : float
+			Dependent variable.
+		qCO2 : float
+			Source/sink rate.
+		a : float
+			Source/sink strength parameter.
+		b : float
+			Recharge strength parameter.
+		d  : float
+			Recharge strength parameter
+		P : float
+			Pressure at time point t
+		P0 : float
+			Ambient value of Pressure within the system.
+		M0 : float
+			Ambient value of Mass of the system
+		C0 : float
+			Ambient value of the dependent variable.
+
+		Returns:
+		--------
+		dCdt : float
+			Derivative of Pressure variable with respect to independent variable.
+	'''
+	# performing calculating C' for ODE
 	if (P > P0):
 		Cdash = C
 	else:
 		Cdash = C0
 
-	qloss = (b/a)*(P-P0)*Cdash*t
-	qC02 = qC02 - qloss
-	dCdt = ((1 - C)*qC02)/M0 - (b/(a*M0))*(P-P0)*(Cdash-C) - d*(C-C0)
+	qloss = (b/a)*(P-P0)*Cdash*t # calculating CO2 loss to groundwater
+
+	qC02 = qC02 - qloss # qCO2 after the loss
+
+	dCdt = ((1 - C)*qC02)/M0 - (b/(a*M0))*(P-P0)*(Cdash-C) - d*(C-C0) # calculates the derivative
 	return dCdt
 
 def solve_Solute_ode(f, t0, t1, dt, x0, pars):
