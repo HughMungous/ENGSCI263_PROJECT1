@@ -229,13 +229,43 @@ def SoluteModel(t, C, qC02, a, b, d, P, P0, M0, C0):
 	return dCdt
 
 def solve_Solute_ode(f, t0, t1, dt, x0, pars):
-	nt = int(np.ceil((t1-t0)/dt))
-	ts = t0+np.arange(nt+1)*dt
-	ys = 0.*ts
-	ys[0] = x0
-	qC02 = pars[0]
-	Pressure = pars[4]
+	''' Solve an ODE numerically.
+
+		Parameters:
+		-----------
+		f : callable
+			Function that returns dxdt given variable and parameter inputs.
+		t0 : float
+			Initial time of solution.
+		t1 : float
+			Final time of solution.
+		dt : float
+			Time step length.
+		x0 : float
+			Initial value of solution.
+		pars : array-like
+			List of parameters passed to ODE function f.
+
+		Returns:
+		--------
+		t : array-like
+			Independent variable solution vector.
+		ys : array-like
+			Dependent variable solution vector.
+
+		Notes:
+		------
+		ODE is solved using improved Euler
+	'''
+	nt = int(np.ceil((t1-t0)/dt)) # gets size of the array needing to solve
+	ts = t0+np.arange(nt+1)*dt # creates time array
+	ys = 0.*ts # creates array to put solutions in
+	ys[0] = x0 # inputs initial value
+	qC02 = pars[0] # extracts sink rate
+	Pressure = pars[4] # extracts pressure values
 	for k in range(nt):
+		# improved euler needs different values of pressure and sink rate
+		# for different time values
 		pars[0] = qC02[k]
 		pars[4] = Pressure[k]
 		ys[k + 1] = improved_euler_step(f, ts[k], ys[k], dt, x0, pars)
@@ -264,30 +294,23 @@ def solve_Pressure_ode(f, t0, t1, dt, x0, pars):
 		--------
 		t : array-like
 			Independent variable solution vector.
-		x : array-like
+		ys : array-like
 			Dependent variable solution vector.
 
 		Notes:
 		------
-		ODE should be solved using the Improved Euler Method. 
-
-		Function q(t) should be hard coded within this method. Create duplicates of 
-		solve_ode for models with different q(t).
-
-		Assume that ODE function f takes the following inputs, in order:
-			1. independent variable
-			2. dependent variable
-			3. forcing term, q
-			4. all other parameters
+		ODE is solved using improved Euler
 	'''
-	nt = int(np.ceil((t1-t0)/dt))
-	ts = t0+np.arange(nt+1)*dt
-	ys = 0.*ts
-	ys[0] = x0
-	netFlow = pars[0]
+
+	nt = int(np.ceil((t1-t0)/dt)) # gets size of the array needing to solve
+	ts = t0+np.arange(nt+1)*dt # creates time array
+	ys = 0.*ts # creates array to put solutions in
+	ys[0] = x0 # inputs initial value
+	netFlow = pars[0] # extracts the sink values 
 	for k in range(nt):
-		pars[0] = netFlow[k]
-		pars[4] = (netFlow[k+1] - netFlow[k])/(ts[k+1]-ts[k])
+		pars[0] = netFlow[k] # ODE needs sink at different time points
+		# calculates dqdt using forward differentiation
+		pars[4] = (netFlow[k+1] - netFlow[k])/(ts[k+1]-ts[k]) 
 		ys[k + 1] = improved_euler_step(f, ts[k], ys[k], dt, x0, pars)
 	return ts,ys
 
@@ -313,12 +336,27 @@ def improved_euler_step(f, tk, yk, h, x0, pars):
 		yk1 : float
 			Solution at end of the Improved Euler step.
 	"""
-	f0 = f(tk, yk, *pars, x0)
-	f1 = f(tk + h, yk + h*f0, *pars,x0)
-	yk1 = yk + h*(f0*0.5 + f1*0.5)
+	f0 = f(tk, yk, *pars, x0) # calculates f0 using function
+	f1 = f(tk + h, yk + h*f0, *pars,x0) # calculates f1 using fuctions
+	yk1 = yk + h*(f0*0.5 + f1*0.5) # calculates the new y value
 	return yk1
 
 def getPressureData():
+	'''
+	Reads all relevant data from output.csv file
+	Parameters : 
+	------------
+	None
+
+	Returns : 
+	---------
+	t : np.array
+		Time data that matches with other relevant quantities 
+	P : np.array
+		Relevant Pressure data in MPa
+	net : np.array
+		Overall net flow for the system in kg/s
+	'''
 	# reads the files' values
 	vals = np.genfromtxt('output.csv', delimiter = ',', skip_header= 1, missing_values= 0)
 	# extracts the relevant data
