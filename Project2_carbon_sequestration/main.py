@@ -5,6 +5,7 @@ from matplotlib import pyplot as plt
 from numpy.lib.function_base import interp
 from scipy.interpolate import interp1d
 import itertools
+from scipy.optimize import curve_fit
 
 
 
@@ -17,11 +18,12 @@ def main():
 	# dqdt I assume is something we solve for depending on the change in flow rates
 	# this will solve the ODE with the different net flow values
 	dt = 0.5
-	sol_time, sol_pressure = solve_Pressure_ode(pressure_model, time[0], time[-1], dt , Pressure[0], pars)
+	sol_time, sol_pressure = solve_Pressure_ode(pressure_model, time[0], 2004, dt , Pressure[0], pars)
 
 	f, ax = plt.subplots(1, 1)
 	ax.plot(sol_time,sol_pressure, 'b', label = 'ODE')
-	ax.plot(time,Pressure, 'r', label = 'DATA')
+	ax.plot(time[0:83],Pressure[0:83], 'r', label = 'DATA')
+	plt.axvline(2004, color = 'black', linestyle = '--', label = 'Calibration point')
 	ax.legend()
 	ax.set_title("Pressure flow in the Orakei geothermal field.")
 	plt.show()
@@ -29,14 +31,15 @@ def main():
 	time, Pressure, CO2_injec, conc = getConcentrationData()
 	# in order for pars
 	# qCO2, a, b, d, P, P0, M0
-	pars = [CO2_injec,1123412341351354,1,.3,Pressure,Pressure[0],8555.23459874256]
-	dt = 0.465
-	sol_time, sol_conc = solve_Solute_ode(SoluteModel, time[0], time[-1], dt , conc[0], pars)
+	pars = [CO2_injec,1123412341351354,1,.3,sol_pressure,sol_pressure[0],8555.23459874256]
+	dt = 0.5
+	sol_time, sol_conc = solve_Solute_ode(SoluteModel, time[0], 2004, dt , conc[0], pars)
 	f, ax = plt.subplots(1, 1)	
 	ax.plot(sol_time,sol_conc, 'b', label = 'ODE')
-	ax.plot(time,conc, 'r', label = 'DATA')
+	ax.plot(time[0:83],conc[0:83], 'r', label = 'DATA')
+	plt.axvline(2004, color = 'black', linestyle = '--', label = 'Calibration point')
 	ax.legend()
-	ax.set_title("Pressure flow in the Orakei geothermal field.")
+	ax.set_title("Concentration of CO2 in the Orakei geothermal field.")
 	plt.show()
 	return
 
