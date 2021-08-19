@@ -6,23 +6,21 @@ from numpy.lib.function_base import interp
 from scipy.interpolate import interp1d
 import itertools
 from scipy.optimize import curve_fit as curve
-
+import glob as glob
 
 
 def main():
 	time, Pressure ,netFlow = getPressureData()
 	pars = [netFlow,0.0012653061224489797,0.09836734693877551,0.0032244897959183673,1]
-
-	# q is variable so need to increment the different flows 
 	# a,b,c are some constants we define
 	# dqdt I assume is something we solve for depending on the change in flow rates
 	# this will solve the ODE with the different net flow values
 	dt = 0.5
-	sol_time, sol_pressure = solve_Pressure_ode(pressure_model, time[0], 2004, dt , Pressure[0], pars)
+	sol_time, sol_pressure = solve_Pressure_ode(pressure_model, time[0], time[-1], dt , Pressure[0], pars)
 
 	f, ax = plt.subplots(1, 1)
 	ax.plot(sol_time,sol_pressure, 'b', label = 'ODE')
-	ax.plot(time[0:83],Pressure[0:83], 'r', label = 'DATA')
+	ax.plot(time,Pressure, 'r', label = 'DATA')
 	plt.axvline(2004, color = 'black', linestyle = '--', label = 'Calibration point')
 	ax.legend()
 	ax.set_title("Pressure flow in the Orakei geothermal field.")
@@ -33,15 +31,37 @@ def main():
 	# qCO2, a, b, d, P, P0, M0
 	pars = [CO2_injec,1123412341351354,1,.3,sol_pressure,sol_pressure[0],8555.23459874256]
 	dt = 0.5
-	sol_time, sol_conc = solve_Solute_ode(SoluteModel, time[0], 2004, dt , conc[0], pars)
+	sol_time, sol_conc = solve_Solute_ode(SoluteModel, time[0], time[-1], dt , conc[0], pars)
 	f, ax = plt.subplots(1, 1)	
 	ax.plot(sol_time,sol_conc, 'b', label = 'ODE')
-	ax.plot(time[0:83],conc[0:83], 'r', label = 'DATA')
+	ax.plot(time,conc, 'r', label = 'DATA')
 	plt.axvline(2004, color = 'black', linestyle = '--', label = 'Calibration point')
 	ax.legend()
 	ax.set_title("Concentration of CO2 in the Orakei geothermal field.")
 	plt.show()
+	PlotBenchmark(sol_pressure,sol_time, [time, Pressure])
 	return
+
+def PlotBenchmark(sol_pressure,sol_time, data):
+	analytical_soln = []
+	time, Pressure ,netFlow = getPressureData()
+	a = 0.0012653061224489797
+	b = 0.09836734693877551
+	for i in range(len(time)):
+		analytical_soln.append(analytical(Pressure[0],a,b,netFlow[i], time[i]))
+
+	f, ax = plt.subplots(1, 1)	
+	ax.plot(time,analytical_soln, 'k', label = 'Analytical Solution')
+	ax.plot(sol_time,sol_pressure, 'r', label = 'Numerical Solution')
+	ax.plot(data[0],data[1], 'b.', label = 'Interpolated Data')
+	ax.legend()
+	ax.set_title("Analytical vs Numerical Solution for Pressure")
+	plt.show()
+	return
+
+def analytical(P0, a, b, q, t):
+	return P0 - ((a*q)/b)*(1-np.exp(-b*t))
+
 
 def getConcentrationData():
 	'''
@@ -312,8 +332,7 @@ def solve_Pressure_ode(f, t0, t1, dt, x0, pars):
 	netFlow = pars[0] # extracts the sink values 
 	for k in range(nt):
 		pars[0] = netFlow[k] # ODE needs sink at different time points
-		# calculates dqdt using forward differentiation
-		pars[4] = (netFlow[k+1] - netFlow[k])/(ts[k+1]-ts[k]) 
+		pars[4] = (netFlow[k+1] - netFlow[k])/(ts[k+1]-ts[k])# calculates dqdt using forward differentiation
 		ys[k + 1] = improved_euler_step(f, ts[k], ys[k], dt, x0, pars)
 	return ts,ys
 
