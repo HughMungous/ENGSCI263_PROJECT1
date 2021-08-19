@@ -39,30 +39,32 @@ def main():
 	ax.legend()
 	ax.set_title("Concentration of CO2 in the Orakei geothermal field.")
 	plt.show()
-	PlotBenchmark(sol_pressure,sol_time, [time, Pressure])
+	PlotBenchmark_pressure(sol_pressure,sol_time)
 	return
 
-def PlotBenchmark(sol_pressure,sol_time, data):
+def PlotBenchmark_pressure(sol_pressure,sol_time):
 	analytical_soln = []
 	time, Pressure ,netFlow = getPressureData()
 	a = 0.0012653061224489797
 	b = 0.09836734693877551
 	for i in range(len(time)):
-		analytical_soln.append(analytical(Pressure[0],a,b,netFlow[i], time[i]))
+		analytical_soln.append(analytical_pressure(Pressure[0],a,b,netFlow[i], time[i]))
 
 	f, ax = plt.subplots(1, 1)	
 	ax.plot(time,analytical_soln, 'k', label = 'Analytical Solution')
 	ax.plot(sol_time,sol_pressure, 'r', label = 'Numerical Solution')
-	ax.plot(data[0],data[1], 'b.', label = 'Interpolated Data')
 	ax.legend()
 	ax.set_title("Analytical vs Numerical Solution for Pressure")
 	plt.show()
 	return
 
-def analytical(P0, a, b, q, t):
+def analytical_pressure(P0, a, b, q, t):
 	return P0 - ((a*q)/b)*(1-np.exp(-b*t))
 
-
+def PlotBenchmark_Solute():
+	return
+def analytical_solute():
+	return
 def getConcentrationData():
 	'''
 	Reads all relevant data from output.csv file
