@@ -1,4 +1,5 @@
 # The start of the Modelling stuff I guess
+from re import A
 import numpy as np
 from numpy.core.numeric import NaN
 from matplotlib import pyplot as plt
@@ -8,41 +9,53 @@ import itertools
 from scipy.optimize import curve_fit
 
 net = []
-
+qCO2 = []
+pressure = []
+C = []
+a = 0
+b = 0
 def main():
 	time, Pressure  = getPressureData()
-	pars = [Pressure[0], 0.0012653061224489797,0.09836734693877551,0.0032244897959183673,1]
+	pars = [0.0012653061224489797,0.09836734693877551,0.0032244897959183673]
 
 	# q is variable so need to increment the different flows 
 	# a,b,c are some constants we define
 	# dqdt I assume is something we solve for depending on the change in flow rates
 	# this will solve the ODE with the different net flow values
 	# dt = 0.5
-	autofit_pars = curve_fit(solve_Pressure_ode, time[:83], Pressure[:83], pars)
-	# print(autofit_pars)
+	autofit_pars = curve_fit(solve_Pressure_ode, time, Pressure)
+	print(autofit_pars[0])
 	# return
 
-	sol_pressure = solve_Pressure_ode(time[0:83], *autofit_pars[0])
-
+	sol_pressure = solve_Pressure_ode(time, *autofit_pars[0])
+	global pressure
+	pressure = sol_pressure
 	f, ax = plt.subplots(1, 1)
-	ax.plot(time[0:83],sol_pressure, 'b', label = 'ODE')
-	ax.plot(time[0:83],Pressure[0:83], 'r', label = 'DATA')
+	ax.plot(time,sol_pressure, 'b', label = 'ODE')
+	ax.plot(time,Pressure, 'r', label = 'DATA')
 	plt.axvline(2004, color = 'black', linestyle = '--', label = 'Calibration point')
 	ax.legend()
 	ax.set_title("Pressure flow in the Orakei geothermal field.")
 	plt.show()
 
-	time, Pressure, CO2_injec, conc = getConcentrationData()
+	time, Pressure, conc = getConcentrationData()
 	# in order for pars
-	# qCO2, a, b, d, P, P0, M0
-	pars = [CO2_injec,1123412341351354,1,.3,sol_pressure,sol_pressure[0],8555.23459874256]
+	global C
+	C = conc
+	global a
+	a = autofit_pars[0][0]
+	global b
+	b = autofit_pars[0][1]
+	# a, b, d, M0
+	pars = [0.0001,10000000]
 	dt = 0.5
+	autofit_pars = curve_fit(solve_Solute_ode, time, conc, pars)
 
-	sol_time, sol_conc = solve_Solute_ode(SoluteModel, time[0], 2004, dt , conc[0], pars)
+	print(autofit_pars[0])
+	sol_conc = solve_Solute_ode(time, *autofit_pars[0])
 	f, ax = plt.subplots(1, 1)	
-
-	ax.plot(sol_time,sol_conc, 'b', label = 'ODE')
-	ax.plot(time[0:83],conc[0:83], 'r', label = 'DATA')
+	ax.plot(time,sol_conc, 'b', label = 'ODE')
+	ax.plot(time,conc, 'r', label = 'DATA')
 	plt.axvline(2004, color = 'black', linestyle = '--', label = 'Calibration point')
 	ax.legend()
 	ax.set_title("Concentration of CO2 in the Orakei geothermal field.")
@@ -76,13 +89,14 @@ def getConcentrationData():
 	# extracts the relevant data
 	t = vals[:,1] # time values
 	P = vals[:,3] # Pressure values
-	injec = vals[:,4] # CO2 injection values 
+	global qCO2 
+	qCO2 = vals[:,4] # CO2 injection values 
 	CO2_conc = vals[:,5] # CO2 concentration values
 	CO2_conc[np.isnan(CO2_conc)] = 0.03 # inputting natural state 
-	injec[np.isnan(injec)] = 0 # absence of injection values is 0
+	qCO2[np.isnan(qCO2)] = 0 # absence of injection values is 0
 	P[0] = P[1]
 
-	return t, P, injec, CO2_conc
+	return t, P, CO2_conc
 
 def MSPE_A():
 	'''
@@ -159,7 +173,7 @@ def MSPE_A():
 
 	return best_A,best_B,best_C
 
-def pressure_model(t, P, q, a, b, c, dqdt, P0):
+def pressure_model(t, P, q, a, b, c, dqdt):
 	''' Return the Pressure derivative dP/dt at time, t, for given parameters.
 		Parameters:
 		-----------
@@ -184,10 +198,11 @@ def pressure_model(t, P, q, a, b, c, dqdt, P0):
 		dPdt : float
 			Derivative of Pressure variable with respect to independent variable.
 	'''
+	P0 = 6.17
 	dPdt =  -a*q - b*(P-P0) - c*dqdt
 	return dPdt
 
-def SoluteModel(t, C, qC02, a, b, d, P, P0, M0, C0):
+def SoluteModel(t, C, qC02, P, d, M0):
 	''' Return the Solute derivative dC/dt at time, t, for given parameters.
 		Parameters:
 		-----------
@@ -217,19 +232,23 @@ def SoluteModel(t, C, qC02, a, b, d, P, P0, M0, C0):
 			Derivative of Pressure variable with respect to independent variable.
 	'''
 	# performing calculating C' for ODE
-	if (P > P0):
-		Cdash = C
-	else:
-		Cdash = C0
+	P0 = 6.17
 
-	qloss = (b/a)*(P-P0)*Cdash*t # calculating CO2 loss to groundwater
+	C0 = 0.03
+	if (P > P0):
+		Cdash1 = C
+	else:
+		Cdash1 = C0
+		Cdash2 = 0
+
+	qloss = (b/a)*(P-P0)*Cdash2*t # calculating CO2 loss to groundwater
 
 	qC02 = qC02 - qloss # qCO2 after the loss
 
-	dCdt = ((1 - C)*qC02)/M0 - (b/(a*M0))*(P-P0)*(Cdash-C) - d*(C-C0) # calculates the derivative
+	dCdt = (1 - C)*(qC02/M0) - ((b)/(a*M0))*(P-P0)*(Cdash1-C) - d*(C-C0) # calculates the derivative
 	return dCdt
 
-def solve_Solute_ode(f, t0, t1, dt, x0, pars):
+def solve_Solute_ode(t, d, M0):
 	''' Solve an ODE numerically.
 		Parameters:
 		-----------
@@ -255,22 +274,22 @@ def solve_Solute_ode(f, t0, t1, dt, x0, pars):
 		------
 		ODE is solved using improved Euler
 	'''
-	nt = int(np.ceil((t1-t0)/dt)) # gets size of the array needing to solve
-	ts = t0+np.arange(nt+1)*dt # creates time array
-	ys = 0.*ts # creates array to put solutions in
-	ys[0] = x0 # inputs initial value
-	qC02 = pars[0] # extracts sink rate
-	Pressure = pars[4] # extracts pressure values
-	for k in range(nt):
+	x0 = 0.03
+	dt = 0.5
+	nt = len(t) # gets size of the array needing to solve
+	ys = 0.*t # creates array to put solutions in
+	ys[0] = x0 # inputs initial values
+	pars = [d,M0]
+	for k in range(nt-1):
 		# improved euler needs different values of pressure and sink rate
 		# for different time values
-		pars[0] = qC02[k]
-		pars[4] = Pressure[k]
-		ys[k + 1] = improved_euler_step(f, ts[k], ys[k], dt, x0, pars)
-	return ts,ys
+		q = qCO2[k]
+		P = pressure[k]
+		ys[k + 1] = improved_eulerC_step(SoluteModel, t[k], ys[k], dt, q, P,pars)
+	return ys
 
 
-def solve_Pressure_ode(t, a, b, c, d, e):
+def solve_Pressure_ode(t, a, b, c):
 	''' Solve an ODE numerically.
 		Parameters:
 		-----------
@@ -296,24 +315,22 @@ def solve_Pressure_ode(t, a, b, c, d, e):
 	dt = 0.5
 	nt = len(t)
 	
-	x0 = a
+	x0 = 6.17
 	# ts = t0+np.arange(nt+1)*dt      # creates time array
 	ys = 0.*t                      # creates array to put solutions in
-	ys[0] = a                    # inputs initial value
+	ys[0] = x0                    # inputs initial value
 	# netFlow =                       # extracts the sink values 
 	# pars.insert(0,net[0])
-	pars = [a,b,c,d,e]
+	pars = [a,b,c]
 	for k in range(nt-1):
-		pars[0] = net[k]
-		# pars[0] = netFlow[k]        
+		# pars[0] = netFlow[k]
 		# # ODE needs sink at different time points calculates dqdt using forward differentiation
-		pars[4] = (net[k+1] - net[k])/(t[k+1]-t[k]) 
-		ys[k + 1] = improved_euler_step(pressure_model, t[k], ys[k], dt, x0, pars)
-	
+		q = net[k]
+		dqdt = (net[k+1] - net[k])/(t[k+1]-t[k])
+		ys[k + 1] = improved_eulerP_step(pressure_model, t[k], ys[k], dt,q, dqdt,pars)
 	return ys
 
-
-def improved_euler_step(f, tk, yk, h, x0, pars):
+def improved_eulerC_step(f, tk, yk, h, q, P, pars):
 	""" Compute a single Improved Euler step.
 	
 		Parameters
@@ -335,8 +352,36 @@ def improved_euler_step(f, tk, yk, h, x0, pars):
 			Solution at end of the Improved Euler step.
 	"""
 	# print(pars)
-	f0 = f(tk, yk, *pars, x0) # calculates f0 using function
-	f1 = f(tk + h, yk + h*f0, *pars,x0) # calculates f1 using fuctions
+	f0 = f(tk, yk, q, P, *pars) # calculates f0 using function
+	f1 = f(tk + h, yk + h*f0, q, P, *pars) # calculates f1 using fuctions
+	yk1 = yk + h*(f0*0.5 + f1*0.5) # calculates the new y value
+	return yk1
+
+
+def improved_eulerP_step(f, tk, yk, h, q, dqdt, pars):
+	""" Compute a single Improved Euler step.
+	
+		Parameters
+		----------
+		f : callable
+			Derivative function.
+		tk : float
+			Independent variable at beginning of step.
+		yk : float
+			Solution at beginning of step.
+		h : float
+			Step size.
+		pars : iterable
+			Optional parameters to pass to derivative function.
+			
+		Returns
+		-------
+		yk1 : float
+			Solution at end of the Improved Euler step.
+	"""
+	# print(pars)
+	f0 = f(tk, yk, q ,*pars, dqdt) # calculates f0 using function
+	f1 = f(tk + h, yk + h*f0, q, *pars, dqdt) # calculates f1 using fuctions
 	yk1 = yk + h*(f0*0.5 + f1*0.5) # calculates the new y value
 	return yk1
 
