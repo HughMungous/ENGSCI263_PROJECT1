@@ -349,7 +349,7 @@ def solve_Pressure_ode(f, t0, t1, dt, x0, pars):
 		ys[k + 1] = improved_euler_step(f, ts[k], ys[k], dt, x0, pars)
 	return ts,ys
 
-def COPY_solve_pressure_ode(timeSpace, y0, a, b, c):
+def COPY_solve_pressure_ode(timeSpace, y0: float, a: float, b: float, c: float, dt = 0.5)->List[float]:
 	''' Solve an ODE numerically.
 		Parameters:
 		-----------
@@ -379,10 +379,11 @@ def COPY_solve_pressure_ode(timeSpace, y0, a, b, c):
 		------
 		ODE is solved using improved Euler
 		Uses constant time step of 0.5
+		assumes net is readable withen the scope
 	'''
 	# The step size cannot be variable as it would be adjusted by curve_fit()
 	# this is also dictated by qsink - unless we interpolate
-	dt, nt = 0.5, len(timeSpace)
+	nt = len(timeSpace)
 
 	ans = 0.*timeSpace
 	ans[0] = y0
