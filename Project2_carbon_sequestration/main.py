@@ -8,13 +8,21 @@ import itertools
 from scipy.optimize import curve_fit as curve
 import glob as glob
 
+net = []
 
 def main():
-	time, Pressure ,netFlow = getPressureData()
-	pars = [netFlow,0.0012653061224489797,0.09836734693877551,0.0032244897959183673,1]
+	time, Pressure = getPressureData()
+	pars = [Pressure[0],0.0012653061224489797,0.09836734693877551,0.0032244897959183673,1]
 	# a,b,c are some constants we define
 	# dqdt I assume is something we solve for depending on the change in flow rates
 	# this will solve the ODE with the different net flow values
+
+
+
+
+
+
+
 	dt = 0.5
 	sol_time, sol_pressure = solve_Pressure_ode(pressure_model, time[0], time[-1], dt , Pressure[0], pars)
 
@@ -63,8 +71,10 @@ def analytical_pressure(P0, a, b, q, t):
 
 def PlotBenchmark_Solute():
 	return
+
 def analytical_solute():
 	return
+
 def getConcentrationData():
 	'''
 	Reads all relevant data from output.csv file
@@ -296,7 +306,6 @@ def solve_Solute_ode(f, t0, t1, dt, x0, pars):
 		ys[k + 1] = improved_euler_step(f, ts[k], ys[k], dt, x0, pars)
 	return ts,ys
 
-
 def solve_Pressure_ode(f, t0, t1, dt, x0, pars):
 	''' Solve an ODE numerically.
 
@@ -393,10 +402,11 @@ def getPressureData():
 	# it is given the most recent value
 	injec[np.isnan(injec)] = 0
 	P[0] = P[1] # there is only one missing value
-	net = []
+	global net
+
 	for i in range(len(prod)):
 		net.append(prod[i] - injec[i]) # getting net amount 
-	return t, P, net
+	return t, P
 
 if __name__ == "__main__":
 	main()
