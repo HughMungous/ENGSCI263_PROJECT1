@@ -308,6 +308,10 @@ def solve_Solute_ode(f, t0, t1, dt, x0, pars):
 		ys[k + 1] = improved_euler_step(f, ts[k], ys[k], dt, x0, pars)
 	return ts,ys
 
+def NEW_solve_solute_ode(timeSpace, y0: float, a: float, b: float, d: float, P: float, P0: float, M0: float, dt: float = 0.5)->List[float]:
+	pass
+
+
 def solve_Pressure_ode(f, t0, t1, dt, x0, pars):
 	''' Solve an ODE numerically.
 
@@ -349,7 +353,7 @@ def solve_Pressure_ode(f, t0, t1, dt, x0, pars):
 		ys[k + 1] = improved_euler_step(f, ts[k], ys[k], dt, x0, pars)
 	return ts,ys
 
-def COPY_solve_pressure_ode(timeSpace, y0: float, a: float, b: float, c: float, dt = 0.5)->List[float]:
+def NEW_solve_pressure_ode(timeSpace, y0: float, a: float, b: float, c: float, dt = 0.5)->List[float]:
 	''' Solve an ODE numerically.
 		Parameters:
 		-----------
@@ -397,7 +401,6 @@ def COPY_solve_pressure_ode(timeSpace, y0: float, a: float, b: float, c: float, 
 		ys[k] = improved_euler_step(pressure_model, t[k], ys[k-1], dt, y0, pars)
 
 	return ans
-
 
 def improved_euler_step(f, tk, yk, h, x0, pars):
 	""" Compute a single Improved Euler step.
