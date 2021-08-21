@@ -353,7 +353,67 @@ def solve_Pressure_ode(f, t0, t1, dt, x0, pars):
 		ys[k + 1] = improved_euler_step(f, ts[k], ys[k], dt, x0, pars)
 	return ts,ys
 
-def NEW_solve_pressure_ode(timeSpace, y0: float, a: float, b: float, c: float, dt = 0.5)->List[float]:
+def IMPROVED_solve_pressure_ode(t0, t1, dt, q_sink, pars, optimised=False, pressure = None):
+
+	time = t0 + np.arange(int(np.ceil((t1-t0)/dt))+1)*dt
+	# TODO: check dimensions are the same for data 2 and 3
+	q_sink = interp(time, t0 + np.arange(int(np.ceil((t1-t0)/0.5))+1)*0.5, net)
+	
+	def subFunc(timeSpace, y0: float, a: float, b: float, c: float)->List[float]:
+		''' Solve an ODE numerically.
+			Parameters:
+			-----------
+			timeSpace : array-like
+				Time values used, the difference between values must be linear
+				It must have the same shape as net, unless net is interpolated
+			
+			y0 : float
+				Initial value of solution.
+
+			a : float
+				q_sink coefficient
+
+			b : float
+				pressure coefficient
+
+			c : float
+				dqdt coefficient
+
+			Returns:
+			--------
+			ans : array-like
+				Dependent variable solution vector
+				Same shape as input array
+
+			Notes:
+			------
+			ODE is solved using improved Euler
+			Uses constant time step of 0.5
+			assumes net is readable withen the scope
+		'''
+		# The step size cannot be variable as it would be adjusted by curve_fit()
+		# this is also dictated by qsink - unless we interpolate
+		nt = len(timeSpace)
+
+		ans = 0.*timeSpace
+		ans[0] = y0
+
+		pars = [0, a, b, c, 0]
+		for k in range(1, nt):
+			# setting the value for q sink and dqdt
+			pars[0] = q_sink[k]
+
+			pars[-1] = (q_sink[k] - q_sink[k-1])/dt
+			ans[k] = improved_euler_step(pressure_model, timeSpace[k], ans[k-1], dt, y0, pars)
+
+		return ans
+	
+	if optimised and pressure != None and len(pressure) == int(np.ceil((t1-t0)/0.5))+1:
+		pars = curve(subFunc, timeSpace, interp(time, t0 + np.arange(int(np.ceil((t1-t0)/0.5))+1)*0.5), pressure, p0=pars)[0]
+		
+	return time, subFunc(time, *pars)
+
+def NEW_solve_pressure_ode(timeSpace, y0: float, a: float, b: float, c: float)->List[float]:
 	''' Solve an ODE numerically.
 		Parameters:
 		-----------
@@ -388,6 +448,7 @@ def NEW_solve_pressure_ode(timeSpace, y0: float, a: float, b: float, c: float, d
 	# The step size cannot be variable as it would be adjusted by curve_fit()
 	# this is also dictated by qsink - unless we interpolate
 	nt = len(timeSpace)
+	dt = 0.5
 
 	ans = 0.*timeSpace
 	ans[0] = y0
