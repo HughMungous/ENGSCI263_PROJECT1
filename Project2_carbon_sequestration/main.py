@@ -393,7 +393,7 @@ def COPY_solve_pressure_ode(timeSpace, y0, a, b, c):
 		pars[0] = net[k]
 
 		pars[-1] = (net[k] - net[k-1])/dt
-		ys[k] = improved_euler_step(pressure_model, t[k], ys[k-1], dt, y0, pars)
+		ans[k] = improved_euler_step(pressure_model, timeSpace[k], ans[k-1], dt, y0, pars)
 
 	return ans
 
