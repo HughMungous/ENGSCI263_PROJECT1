@@ -409,7 +409,7 @@ def IMPROVED_solve_pressure_ode(t0, t1, dt, q_sink, pars, optimised=False, press
 		return ans
 	
 	if optimised and pressure != None and len(pressure) == int(np.ceil((t1-t0)/0.5))+1:
-		pars = curve(subFunc, timeSpace, interp(time, t0 + np.arange(int(np.ceil((t1-t0)/0.5))+1)*0.5), pressure, p0=pars)[0]
+		pars = curve(subFunc, timeSpace, interp(time, t0 + np.arange(int(np.ceil((t1-t0)/0.5))+1)*0.5, pressure), p0=pars)[0]
 		
 	return time, subFunc(time, *pars)
 
