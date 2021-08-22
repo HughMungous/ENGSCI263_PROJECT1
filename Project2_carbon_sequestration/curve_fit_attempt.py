@@ -23,19 +23,18 @@ def main():
 	# dqdt I assume is something we solve for depending on the change in flow rates
 	# this will solve the ODE with the different net flow values
 	# dt = 0.5
-	autofit_pars = curve_fit(solve_Pressure_ode, time, Pressure)
-	print(autofit_pars[0])
-	# return
-
+	autofit_pars = curve_fit(solve_Pressure_ode, time[0:84], Pressure[0:84])
 	sol_pressure = solve_Pressure_ode(time, *autofit_pars[0])
+
 	global pressure
 	pressure = sol_pressure
+
 	f, ax = plt.subplots(1, 1)
-	ax.plot(time,sol_pressure, 'b', label = 'ODE')
-	ax.plot(time,Pressure, 'r', label = 'DATA')
-	plt.axvline(2004, color = 'black', linestyle = '--', label = 'Calibration point')
+	ax.plot(time[0:84],sol_pressure[0:84], 'b', label = 'ODE')
+	ax.plot(time[0:84],Pressure[0:84], 'r', label = 'DATA')
+	plt.axvline(time[83], color = 'black', linestyle = '--', label = 'Calibration point')
 	ax.legend()
-	ax.set_title("Pressure flow in the Orakei geothermal field.")
+	ax.set_title("Pressure flow in the Ohaaki geothermal field.")
 	plt.show()
 
 	time, Pressure, conc = getConcentrationData()
@@ -48,17 +47,16 @@ def main():
 	b = autofit_pars[0][1]
 	# a, b, d, M0
 	pars = [0.0001,10000000]
-	dt = 0.5
-	autofit_pars = curve_fit(solve_Solute_ode, time, conc, pars)
 
-	print(autofit_pars[0])
+	autofit_pars = curve_fit(solve_Solute_ode, time[0:84], conc[0:84], pars)
 	sol_conc = solve_Solute_ode(time, *autofit_pars[0])
+
 	f, ax = plt.subplots(1, 1)	
-	ax.plot(time,sol_conc, 'b', label = 'ODE')
-	ax.plot(time,conc, 'r', label = 'DATA')
-	plt.axvline(2004, color = 'black', linestyle = '--', label = 'Calibration point')
+	ax.plot(time[0:84],sol_conc[0:84], 'b', label = 'ODE')
+	ax.plot(time[0:84],conc[0:84], 'r', label = 'DATA')
+	plt.axvline(time[83], color = 'black', linestyle = '--', label = 'Calibration point')
 	ax.legend()
-	ax.set_title("Concentration of CO2 in the Orakei geothermal field.")
+	ax.set_title("Concentration of CO2 in the Ohaaki geothermal field.")
 	plt.show()
 	return
 
