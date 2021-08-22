@@ -1,4 +1,5 @@
 # The start of the Modelling stuff I guess
+#from main import solve_Pressure_ode
 from re import A
 import numpy as np
 from numpy.core.numeric import NaN
@@ -14,6 +15,7 @@ pressure = []
 C = []
 a = 0
 b = 0
+
 def main():
 	time, Pressure  = getPressureData()
 	pars = [0.0012653061224489797,0.09836734693877551,0.0032244897959183673]
@@ -23,8 +25,8 @@ def main():
 	# dqdt I assume is something we solve for depending on the change in flow rates
 	# this will solve the ODE with the different net flow values
 	# dt = 0.5
-	autofit_pars = curve_fit(solve_Pressure_ode, time[0:84], Pressure[0:84])
-	sol_pressure = solve_Pressure_ode(time, *autofit_pars[0])
+	autofit_pars1 = curve_fit(solve_Pressure_ode, time[0:84], Pressure[0:84])
+	sol_pressure = solve_Pressure_ode(time, *autofit_pars1[0])
 
 	global pressure
 	pressure = sol_pressure
@@ -42,9 +44,9 @@ def main():
 	global C
 	C = conc
 	global a
-	a = autofit_pars[0][0]
+	a = autofit_pars1[0][0]
 	global b
-	b = autofit_pars[0][1]
+	b = autofit_pars1[0][1]
 	# a, b, d, M0
 	pars = [0.0001,10000000]
 
@@ -58,6 +60,32 @@ def main():
 	ax.legend()
 	ax.set_title("Concentration of CO2 in the Ohaaki geothermal field.")
 	plt.show()
+
+	prediction = time[84::]
+	sol = solve_Pressure_ode(time[84::], *autofit_pars1[0])
+
+	f, ax = plt.subplots(1, 1)
+	ax.plot(time[0:84],sol_pressure[0:84], 'b', label = 'ODE calibrate')
+	ax.plot(time[84::],sol, 'k', label = 'ODE')
+	ax.legend()
+	ax.set_title("Concentration of CO2 in the Ohaaki geothermal field.")
+	plt.show()
+	
+	return
+
+def PressureModelPredict(t, P, P0, q, dqdt, a, b, c):
+	dPdt =  -a*q - b*(P-P0) - c*dqdt
+	return dpdt
+
+def PressurePrediction(t, P, q ,a, b, c):
+	# purpose is to predict the model at a time t, pars is the a b c to put into
+	sol = []
+	pressure = 0*len(t)
+	for i in range(t):
+		sol.append(1)
+	return sol
+
+def Extrapolate():
 	return
 
 def getConcentrationData():
@@ -171,7 +199,7 @@ def MSPE_A():
 
 	return best_A,best_B,best_C
 
-def pressure_model(t, P, q, a, b, c, dqdt):
+def curve_pressure_model(t, P, q, a, b, c, dqdt):
 	''' Return the Pressure derivative dP/dt at time, t, for given parameters.
 		Parameters:
 		-----------
@@ -325,7 +353,7 @@ def solve_Pressure_ode(t, a, b, c):
 		# # ODE needs sink at different time points calculates dqdt using forward differentiation
 		q = net[k]
 		dqdt = (net[k+1] - net[k])/(t[k+1]-t[k])
-		ys[k + 1] = improved_eulerP_step(pressure_model, t[k], ys[k], dt,q, dqdt,pars)
+		ys[k + 1] = improved_eulerP_step(curve_pressure_model, t[k], ys[k], dt,q, dqdt,pars)
 	return ys
 
 def improved_eulerC_step(f, tk, yk, h, q, P, pars):
