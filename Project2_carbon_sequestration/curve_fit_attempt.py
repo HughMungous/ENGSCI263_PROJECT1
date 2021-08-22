@@ -1,6 +1,7 @@
 # The start of the Modelling stuff I guess
 #from main import solve_Pressure_ode
-from re import A
+#from main import getConcentrationData
+#from re import A
 import numpy as np
 from numpy.core.numeric import NaN
 from matplotlib import pyplot as plt
@@ -24,29 +25,44 @@ def main():
 	# up to 2020
 	# Then we can extrapolate
 	time, Pressure = getPressureData()
-	prediction = time
+	prediction = time[90::]
 	pars = [1, 1, a,b,c]
-	sol, t = solve_pressure_ode(pressure_model, prediction[0], prediction[-1], 0.465, pressure[0], pars)
+	sol, t = solve_pressure_ode(pressure_model, prediction[0], prediction[-1], 0.5, pressure[90], pars)
 
 	f, ax = plt.subplots(1, 1)
 	ax.plot(t,sol, 'r', label = 'ODE predict')
-	ax.plot(time,pressure, 'b', label = 'ODE')
+	ax.plot(time[0:91],pressure, 'b', label = 'ODE')
 	ax.plot(time, Pressure, 'k', label = 'DATA')
 	plt.axvline(time[90], color = 'black', linestyle = '--', label = 'Calibration point')
 	ax.legend()
 	ax.set_title("Pressure flow in the Ohaaki geothermal field.")
 	plt.show()
+
+	pars = [qCO2, sol, a, b, d, M0]
+	t, P, conc = getConcentrationData()
+	solC, t, = solve_solute_ode(solute_model, prediction[0], prediction[-1], 0.5, conc[0], pars)
 	return 
+
+def solve_solute_ode(f, t0, t1, dt , x0, pars):
+	nt = int(np.ceil((t1-t0)/dt))
+	ts = t0+np.arange(nt+1)*dt
+	ys = 0.*ts
+	ys[0] = x0
+
+	for k in range(nt):
+		
+		ys[k + 1] = improved_euler_step(f, ts[k], ys[k], dt, P0, pars)
+	return ys, ts
 
 def solve_pressure_ode(f, t0, t1, dt , P0, pars):
 	nt = int(np.ceil((t1-t0)/dt))
 	ts = t0+np.arange(nt+1)*dt
 	ys = 0.*ts
 	ys[0] = P0
-	for k in range(nt):
+	for k in range(90, 90 + nt):
 		pars[0] = net[k]
 		pars[1] = (net[k+1] - net[k])/dt
-		ys[k + 1] = improved_euler_step(f, ts[k], ys[k], dt, P0, pars)
+		ys[k + 1 - 90] = improved_euler_step(f, ts[k - 90], ys[k - 90], dt, P0, pars)
 	return ys, ts
 
 
@@ -80,20 +96,34 @@ def pressure_model(t, P, q, dqdt, a, b, c, P0):
 	dPdt = -a*q - b*(P-P0) - c*dqdt
 	return dPdt
 
+def solute_model(t, C, qCO2, P,a, b, d, M0, P0):
+	if (P > P0):
+		Cdash1 = C
+	else:
+		Cdash1 = C0
+		Cdash2 = 0
+
+	qloss = (b/a)*(P-P0)*Cdash2*t # calculating CO2 loss to groundwater
+
+	qC02 = qC02 - qloss # qCO2 after the loss
+
+	dCdt = (1 - C)*(qC02/M0) - (b/(a*M0))*(P-P0)*(Cdash1-C) - d*(C-C0) # calculates the derivative
+	return dCdt
+
 def CurveFit():
 	time, Pressure  = getPressureData()
 	# initial guesses come from MSPE A function which brute forces the terms
 	pars = [0.0012653061224489797,0.09836734693877551,0.0032244897959183673]
 
-	autofit_pars1 = curve_fit(solve_Pressure_ode, time, Pressure)
-	sol_pressure = solve_Pressure_ode(time, *autofit_pars1[0])
+	autofit_pars1 = curve_fit(solve_Pressure_ode, time[0:91], Pressure[0:91])
+	sol_pressure = solve_Pressure_ode(time[0:91], *autofit_pars1[0])
 
 	global pressure
 	pressure = sol_pressure
 
 	f, ax = plt.subplots(1, 1)
-	ax.plot(time,sol_pressure, 'b', label = 'ODE')
-	ax.plot(time,Pressure, 'r', label = 'DATA')
+	ax.plot(time[0:91],sol_pressure, 'b', label = 'ODE')
+	ax.plot(time[0:91],Pressure[0:91], 'r', label = 'DATA')
 	plt.axvline(time[90], color = 'black', linestyle = '--', label = 'Calibration point')
 	ax.legend()
 	ax.set_title("Pressure flow in the Ohaaki geothermal field.")
@@ -113,16 +143,16 @@ def CurveFit():
 
 	pars = [0.0001,10000000] # initial guesses
 
-	autofit_pars = curve_fit(solve_Solute_ode, time, conc, pars)
-	sol_conc = solve_Solute_ode(time, *autofit_pars[0])
+	autofit_pars = curve_fit(solve_Solute_ode, time[0:91], conc[0:91], pars)
+	sol_conc = solve_Solute_ode(time[0:91], *autofit_pars[0])
 	global d 
 	d = autofit_pars[0][0]
 	global M0
 	M0 = autofit_pars[0][1]
 
 	f, ax = plt.subplots(1, 1)	
-	ax.plot(time,sol_conc, 'b', label = 'ODE')
-	ax.plot(time,conc, 'r', label = 'DATA')
+	ax.plot(time[0:91],sol_conc, 'b', label = 'ODE')
+	ax.plot(time[0:91],conc[0:91], 'r', label = 'DATA')
 	plt.axvline(time[90], color = 'black', linestyle = '--', label = 'Calibration point')
 	ax.legend()
 	ax.set_title("Concentration of CO2 in the Ohaaki geothermal field.")
