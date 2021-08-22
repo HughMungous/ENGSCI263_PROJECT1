@@ -12,29 +12,89 @@ from scipy.optimize import curve_fit
 net = []
 qCO2 = []
 pressure = []
-C = []
 a = 0
 b = 0
+c = 0
+d = 0 
+M0 = 0
 
 def main():
+	CurveFit()
+	# we have all of our constants need to use constants to see how model predicts data 
+	# up to 2020
+	# Then we can extrapolate
+	time, Pressure = getPressureData()
+	prediction = time
+	pars = [1, 1, a,b,c]
+	sol, t = solve_pressure_ode(pressure_model, prediction[0], prediction[-1], 0.465, pressure[0], pars)
+
+	f, ax = plt.subplots(1, 1)
+	ax.plot(t,sol, 'r', label = 'ODE predict')
+	ax.plot(time,pressure, 'b', label = 'ODE')
+	ax.plot(time, Pressure, 'k', label = 'DATA')
+	plt.axvline(time[90], color = 'black', linestyle = '--', label = 'Calibration point')
+	ax.legend()
+	ax.set_title("Pressure flow in the Ohaaki geothermal field.")
+	plt.show()
+	return 
+
+def solve_pressure_ode(f, t0, t1, dt , P0, pars):
+	nt = int(np.ceil((t1-t0)/dt))
+	ts = t0+np.arange(nt+1)*dt
+	ys = 0.*ts
+	ys[0] = P0
+	for k in range(nt):
+		pars[0] = net[k]
+		pars[1] = (net[k+1] - net[k])/dt
+		ys[k + 1] = improved_euler_step(f, ts[k], ys[k], dt, P0, pars)
+	return ys, ts
+
+
+def improved_euler_step(f, tk, yk, h, x0, pars):
+	""" Compute a single Improved Euler step.
+	
+		Parameters
+		----------
+		f : callable
+			Derivative function.
+		tk : float
+			Independent variable at beginning of step.
+		yk : float
+			Solution at beginning of step.
+		h : float
+			Step size.
+		pars : iterable
+			Optional parameters to pass to derivative function.
+			
+		Returns
+		-------
+		yk1 : float
+			Solution at end of the Improved Euler step.
+	"""
+	f0 = f(tk, yk, *pars, x0)
+	f1 = f(tk + h, yk + h*f0, *pars,x0)
+	yk1 = yk + h*(f0*0.5 + f1*0.5)
+	return yk1
+
+def pressure_model(t, P, q, dqdt, a, b, c, P0):
+	dPdt = -a*q - b*(P-P0) - c*dqdt
+	return dPdt
+
+def CurveFit():
 	time, Pressure  = getPressureData()
+	# initial guesses come from MSPE A function which brute forces the terms
 	pars = [0.0012653061224489797,0.09836734693877551,0.0032244897959183673]
 
-	# q is variable so need to increment the different flows 
-	# a,b,c are some constants we define
-	# dqdt I assume is something we solve for depending on the change in flow rates
-	# this will solve the ODE with the different net flow values
-	# dt = 0.5
-	autofit_pars1 = curve_fit(solve_Pressure_ode, time[0:84], Pressure[0:84])
+	autofit_pars1 = curve_fit(solve_Pressure_ode, time, Pressure)
 	sol_pressure = solve_Pressure_ode(time, *autofit_pars1[0])
 
 	global pressure
 	pressure = sol_pressure
 
 	f, ax = plt.subplots(1, 1)
-	ax.plot(time[0:84],sol_pressure[0:84], 'b', label = 'ODE')
-	ax.plot(time[0:84],Pressure[0:84], 'r', label = 'DATA')
-	plt.axvline(time[83], color = 'black', linestyle = '--', label = 'Calibration point')
+	ax.plot(time,sol_pressure, 'b', label = 'ODE')
+	ax.plot(time,Pressure, 'r', label = 'DATA')
+	plt.axvline(time[90], color = 'black', linestyle = '--', label = 'Calibration point')
 	ax.legend()
 	ax.set_title("Pressure flow in the Ohaaki geothermal field.")
 	plt.show()
@@ -47,45 +107,26 @@ def main():
 	a = autofit_pars1[0][0]
 	global b
 	b = autofit_pars1[0][1]
-	# a, b, d, M0
-	pars = [0.0001,10000000]
+	global c
+	c = autofit_pars1[0][2]
 
-	autofit_pars = curve_fit(solve_Solute_ode, time[0:84], conc[0:84], pars)
+
+	pars = [0.0001,10000000] # initial guesses
+
+	autofit_pars = curve_fit(solve_Solute_ode, time, conc, pars)
 	sol_conc = solve_Solute_ode(time, *autofit_pars[0])
+	global d 
+	d = autofit_pars[0][0]
+	global M0
+	M0 = autofit_pars[0][1]
 
 	f, ax = plt.subplots(1, 1)	
-	ax.plot(time[0:84],sol_conc[0:84], 'b', label = 'ODE')
-	ax.plot(time[0:84],conc[0:84], 'r', label = 'DATA')
-	plt.axvline(time[83], color = 'black', linestyle = '--', label = 'Calibration point')
+	ax.plot(time,sol_conc, 'b', label = 'ODE')
+	ax.plot(time,conc, 'r', label = 'DATA')
+	plt.axvline(time[90], color = 'black', linestyle = '--', label = 'Calibration point')
 	ax.legend()
 	ax.set_title("Concentration of CO2 in the Ohaaki geothermal field.")
-	plt.show()
-
-	prediction = time[84::]
-	sol = solve_Pressure_ode(time[84::], *autofit_pars1[0])
-
-	f, ax = plt.subplots(1, 1)
-	ax.plot(time[0:84],sol_pressure[0:84], 'b', label = 'ODE calibrate')
-	ax.plot(time[84::],sol, 'k', label = 'ODE')
-	ax.legend()
-	ax.set_title("Concentration of CO2 in the Ohaaki geothermal field.")
-	plt.show()
-	
-	return
-
-def PressureModelPredict(t, P, P0, q, dqdt, a, b, c):
-	dPdt =  -a*q - b*(P-P0) - c*dqdt
-	return dpdt
-
-def PressurePrediction(t, P, q ,a, b, c):
-	# purpose is to predict the model at a time t, pars is the a b c to put into
-	sol = []
-	pressure = 0*len(t)
-	for i in range(t):
-		sol.append(1)
-	return sol
-
-def Extrapolate():
+	plt.show()	
 	return
 
 def getConcentrationData():
@@ -259,7 +300,6 @@ def SoluteModel(t, C, qC02, P, d, M0):
 	'''
 	# performing calculating C' for ODE
 	P0 = 6.17
-
 	C0 = 0.03
 	if (P > P0):
 		Cdash1 = C
@@ -271,7 +311,7 @@ def SoluteModel(t, C, qC02, P, d, M0):
 
 	qC02 = qC02 - qloss # qCO2 after the loss
 
-	dCdt = (1 - C)*(qC02/M0) - ((b)/(a*M0))*(P-P0)*(Cdash1-C) - d*(C-C0) # calculates the derivative
+	dCdt = (1 - C)*(qC02/M0) - (b/(a*M0))*(P-P0)*(Cdash1-C) - d*(C-C0) # calculates the derivative
 	return dCdt
 
 def solve_Solute_ode(t, d, M0):
@@ -354,6 +394,7 @@ def solve_Pressure_ode(t, a, b, c):
 		q = net[k]
 		dqdt = (net[k+1] - net[k])/(t[k+1]-t[k])
 		ys[k + 1] = improved_eulerP_step(curve_pressure_model, t[k], ys[k], dt,q, dqdt,pars)
+	
 	return ys
 
 def improved_eulerC_step(f, tk, yk, h, q, P, pars):
