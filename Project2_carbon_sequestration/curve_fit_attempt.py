@@ -2,6 +2,7 @@
 #from main import solve_Pressure_ode
 #from main import getConcentrationData
 #from re import A
+import ntpath
 import numpy as np
 from numpy.core.numeric import NaN
 from matplotlib import pyplot as plt
@@ -13,6 +14,7 @@ from scipy.optimize import curve_fit
 net = []
 qCO2 = []
 pressure = []
+concentration = []
 a = 0
 b = 0
 c = 0
@@ -27,10 +29,10 @@ def main():
 	time, Pressure = getPressureData()
 	prediction = time[90::]
 	pars = [1, 1, a,b,c]
-	sol, t = solve_pressure_ode(pressure_model, prediction[0], prediction[-1], 0.5, pressure[90], pars)
+	sol, t = solve_pressure_ode(pressure_model, prediction[0], prediction[-1], 0.5, pressure[0], pars, pressure)
 
 	f, ax = plt.subplots(1, 1)
-	ax.plot(t,sol, 'r', label = 'ODE predict')
+	ax.plot(t[0:-1],sol[90:-1], 'r', label = 'ODE predict')
 	ax.plot(time[0:91],pressure, 'b', label = 'ODE')
 	ax.plot(time, Pressure, 'k', label = 'DATA')
 	plt.axvline(time[90], color = 'black', linestyle = '--', label = 'Calibration point')
@@ -38,31 +40,44 @@ def main():
 	ax.set_title("Pressure flow in the Ohaaki geothermal field.")
 	plt.show()
 
-	pars = [qCO2, sol, a, b, d, M0]
+	pars = [qCO2, sol, a, b, d, M0, sol[0]]
 	t, P, conc = getConcentrationData()
-	solC, t, = solve_solute_ode(solute_model, prediction[0], prediction[-1], 0.5, conc[0], pars)
+	solC, t = solve_solute_ode(solute_model, prediction[0], prediction[-1], 0.5, concentration[0], pars, concentration)
+	f, ax = plt.subplots(1, 1)
+	ax.plot(t[0:-1],solC[90:-1], 'r', label = 'ODE predict')
+	ax.plot(time[0:91],concentration, 'b', label = 'ODE')
+	ax.plot(time, conc, 'k', label = 'DATA')
+	plt.axvline(time[90], color = 'black', linestyle = '--', label = 'Calibration point')
+	ax.legend()
+	ax.set_title("Pressure flow in the Ohaaki geothermal field.")
+	plt.show()
 	return 
 
-def solve_solute_ode(f, t0, t1, dt , x0, pars):
+def solve_solute_ode(f, t0, t1, dt , x0, pars, concentration):
 	nt = int(np.ceil((t1-t0)/dt))
 	ts = t0+np.arange(nt+1)*dt
 	ys = 0.*ts
-	ys[0] = x0
-
-	for k in range(nt):
-		
-		ys[k + 1] = improved_euler_step(f, ts[k], ys[k], dt, P0, pars)
+	q = pars[0]
+	P = pars[1]
+	ys = concentration
+	zeros = np.zeros(nt)
+	ys = np.append(ys,zeros)
+	for k in range(90, 90 + nt - 1):
+		pars[0] = q[k]
+		pars[1] = P[k]
+		ys[k + 1] = improved_euler_step(f, ts[k - 90], ys[k], dt, x0, pars)
 	return ys, ts
 
-def solve_pressure_ode(f, t0, t1, dt , P0, pars):
+def solve_pressure_ode(f, t0, t1, dt , P0, pars, parray):
 	nt = int(np.ceil((t1-t0)/dt))
 	ts = t0+np.arange(nt+1)*dt
-	ys = 0.*ts
-	ys[0] = P0
-	for k in range(90, 90 + nt):
+	ys = parray
+	zeros = np.zeros(nt)
+	ys = np.append(ys,zeros)
+	for k in range(90, 90 + nt - 1):
 		pars[0] = net[k]
 		pars[1] = (net[k+1] - net[k])/dt
-		ys[k + 1 - 90] = improved_euler_step(f, ts[k - 90], ys[k - 90], dt, P0, pars)
+		ys[k + 1] = improved_euler_step(f, ts[k - 90], ys[k], dt, P0, pars)
 	return ys, ts
 
 
@@ -96,7 +111,7 @@ def pressure_model(t, P, q, dqdt, a, b, c, P0):
 	dPdt = -a*q - b*(P-P0) - c*dqdt
 	return dPdt
 
-def solute_model(t, C, qCO2, P,a, b, d, M0, P0):
+def solute_model(t, C, qC02, P,a, b, d, M0, P0, C0):
 	if (P > P0):
 		Cdash1 = C
 	else:
@@ -149,6 +164,8 @@ def CurveFit():
 	d = autofit_pars[0][0]
 	global M0
 	M0 = autofit_pars[0][1]
+	global concentration 
+	concentration = sol_conc
 
 	f, ax = plt.subplots(1, 1)	
 	ax.plot(time[0:91],sol_conc, 'b', label = 'ODE')
