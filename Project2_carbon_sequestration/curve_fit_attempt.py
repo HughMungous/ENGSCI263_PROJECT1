@@ -10,6 +10,7 @@ from numpy.lib.function_base import interp
 from scipy.interpolate import interp1d
 import itertools
 from scipy.optimize import curve_fit
+import statistics
 
 net = []
 qCO2 = []
@@ -26,10 +27,50 @@ def main():
 	# we have all of our constants need to use constants to see how model predicts data 
 	# up to 2020
 	# Then we can extrapolate
+	C, P = testSetODEs()
+	time, Pressure = getPressureData()
+	Extrapolate(time[-1], 2050, P, C, time)
+	return
+
+def Extrapolate(time, Extrapolate, P, C,time2):
+	inj = []
+	netFlow = []
+	for i in range(len(qCO2)):
+		if qCO2[i] != 0:
+			inj.append(qCO2[i])
+	average_net = statistics.mean(net)
+	average_injection = statistics.mean(inj)
+	prediction = np.linspace(time,Extrapolate)
+	stakeholder = [0,1,2,3,4]
+	amount = ['no injection', 'same amount', 'double the rate', 'triple the rate', 'CEL proposed']
+	outcomesP = []
+	colours = ['r','b','y','g','k']
+
+	for increase in stakeholder:
+		injection_rate = average_injection*increase
+		net_rate = average_net*increase
+		parsP = [net_rate,0,a,b,c]
+		parsC = []
+		solP, t = solve_pressure_ode(pressure_model, prediction[0], prediction[-1], 0.5, P[0], parsP, P, 114, extrapolation = True)
+		#solC, t = solve_solute_ode(solute_model, prediction[0], prediction[-1], 0.5, C[0], parsC, C, 114, extrapolation= True )
+		outcomesP.append(solP)
+	time2 = np.append(time2, t)
+	f, ax = plt.subplots(1, 1)
+	for i in range(len(outcomesP)):
+		ax.plot(time2[0:-1], outcomesP[i][0:-1], colours[i], label = 'Prediction' + ' for ' + amount[i])
+	
+	plt.axvline(2007.49, color = 'black', linestyle = '--', label = 'Calibration point')
+	ax.legend()
+	ax.set_title("Pressure flow in the Ohaaki geothermal field.")
+	plt.show()
+	return
+
+def testSetODEs():
 	time, Pressure = getPressureData()
 	prediction = time[90::]
 	pars = [1, 1, a,b,c]
-	sol, t = solve_pressure_ode(pressure_model, prediction[0], prediction[-1], 0.5, pressure[0], pars, pressure)
+	index = 90
+	sol, t = solve_pressure_ode(pressure_model, prediction[0], prediction[-1], 0.5, pressure[0], pars, pressure, index, extrapolation = False)
 
 	f, ax = plt.subplots(1, 1)
 	ax.plot(t[0:-1],sol[90:-1], 'r', label = 'ODE predict')
@@ -42,7 +83,7 @@ def main():
 
 	pars = [qCO2, sol, a, b, d, M0, sol[0]]
 	t, P, conc = getConcentrationData()
-	solC, t = solve_solute_ode(solute_model, prediction[0], prediction[-1], 0.5, concentration[0], pars, concentration)
+	solC, t = solve_solute_ode(solute_model, prediction[0], prediction[-1], 0.5, concentration[0], pars, concentration, index, extrapolation = False)
 	f, ax = plt.subplots(1, 1)
 	ax.plot(t[0:-1],solC[90:-1], 'r', label = 'ODE predict')
 	ax.plot(time[0:91],concentration, 'b', label = 'ODE')
@@ -51,9 +92,9 @@ def main():
 	ax.legend()
 	ax.set_title("Pressure flow in the Ohaaki geothermal field.")
 	plt.show()
-	return 
+	return solC[0:-1], sol[0:-1]
 
-def solve_solute_ode(f, t0, t1, dt , x0, pars, concentration):
+def solve_solute_ode(f, t0, t1, dt , x0, pars, concentration, index, extrapolation = False):
 	nt = int(np.ceil((t1-t0)/dt))
 	ts = t0+np.arange(nt+1)*dt
 	ys = 0.*ts
@@ -62,22 +103,25 @@ def solve_solute_ode(f, t0, t1, dt , x0, pars, concentration):
 	ys = concentration
 	zeros = np.zeros(nt)
 	ys = np.append(ys,zeros)
-	for k in range(90, 90 + nt - 1):
-		pars[0] = q[k]
-		pars[1] = P[k]
+	for k in range(index, index + nt - 1):
+		if extrapolation is False:
+			pars[0] = q[k]
+			pars[1] = P[k]
 		ys[k + 1] = improved_euler_step(f, ts[k - 90], ys[k], dt, x0, pars)
 	return ys, ts
 
-def solve_pressure_ode(f, t0, t1, dt , P0, pars, parray):
+def solve_pressure_ode(f, t0, t1, dt , P0, pars, parray, index, extrapolation = False):
 	nt = int(np.ceil((t1-t0)/dt))
 	ts = t0+np.arange(nt+1)*dt
 	ys = parray
 	zeros = np.zeros(nt)
 	ys = np.append(ys,zeros)
-	for k in range(90, 90 + nt - 1):
-		pars[0] = net[k]
-		pars[1] = (net[k+1] - net[k])/dt
-		ys[k + 1] = improved_euler_step(f, ts[k - 90], ys[k], dt, P0, pars)
+	for k in range(index, index + nt - 1):
+		if extrapolation is False:
+			pars[0] = net[k]
+			pars[1] = (net[k+1] - net[k])/dt
+
+		ys[k + 1] = improved_euler_step(f, ts[k - index], ys[k], dt, P0, pars)
 	return ys, ts
 
 
