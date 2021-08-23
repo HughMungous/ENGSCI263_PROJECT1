@@ -1,5 +1,13 @@
 
+import ntpath
 import numpy as np
+from numpy.core.numeric import NaN
+from matplotlib import pyplot as plt
+from numpy.lib.function_base import interp
+from scipy.interpolate import interp1d
+import itertools
+from scipy.optimize import curve_fit
+import statistics
 
 """
 Do you think we should generate a base class containing the basic ode? 
@@ -62,10 +70,12 @@ class DataInput:
 		pass
 
 class PressureModel:
-	"""Class containing pressure model methods
+	"""Class containing pressure model methods, instantiated using: newVar = PressureModel()
+
+		Data :
+			...
 
 		Functions :
-
 			getPresureData : 
 				None -> None
 				reads in the data from output.csv adding it to the class data
@@ -78,11 +88,12 @@ class PressureModel:
 		add other functions
 
 	"""
-	# def __init__(self):
-	# 	self.time = []
-	# 	self.pressure = []
-	# 	self.net = []
-		
+	def __init__(self):
+		self.time = []
+		self.pressure = []
+		self.net = []
+		self.pars = [1, 1, 0.0012653061224489797, 0.09836734693877551, 0.0032244897959183673] # maybe not under __init__?
+
 	def getPressureData(self)->None:
 		'''
 			Reads all relevant data from output.csv file
@@ -132,7 +143,11 @@ class PressureModel:
 		dPdt = -a*q - b*(P-P0) - c*dqdt
 		return dPdt
 
-	
+	def optimise(self)->None:
+		"""Function which uses curve_fit() to optimise the paramaters for the ode
+		"""
+		
+		pass
 
 class SoluteModel:
 	pass
