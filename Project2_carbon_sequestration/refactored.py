@@ -93,6 +93,7 @@ class PressureModel:
 		self.pressure = []
 		self.net = []
 		self.pars = [1, 1, 0.0012653061224489797, 0.09836734693877551, 0.0032244897959183673] # maybe not under __init__?
+		self.dt = 0.5
 
 	def getPressureData(self)->None:
 		'''
@@ -142,6 +143,29 @@ class PressureModel:
 		"""
 		dPdt = -a*q - b*(P-P0) - c*dqdt
 		return dPdt
+
+	def solve(self, t: List[float], y0: float, a: float, b: float, c: float)->List[float]:
+		""" Solves ode ...
+		
+		"""
+		nt = len(t)
+		if nt != len(self.net):
+			raise ValueError("If the original time data is not used then the net sink must be interpolated to fit")
+
+		result = 0.*t
+		result[0] = y0
+
+		pars = [0, a, b, c, 0]
+
+		for k in range(1, nt):
+			# setting the value for q sink and dqdt
+			pars[0] = self.net[k]
+			pars[-1] = (self.net[k] - self.net[k-1]) / self.dt
+
+			# might not work - untested
+			result[k] = Helper.improved_euler_step(self.pressure_model, timeSpace[k], result[k-1], dt, y0, pars)
+
+		return result
 
 	def optimise(self)->None:
 		"""Function which uses curve_fit() to optimise the paramaters for the ode
