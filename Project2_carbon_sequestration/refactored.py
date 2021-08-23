@@ -44,6 +44,17 @@ class Helper:
 		
 		return yk1
 
+class Plotting:
+	"""Class contianing plotting functions
+	
+	TODO:
+		plot pressure
+		plot solute
+		plot más?
+
+	"""
+	pass
+
 class DataInput:
 	def getPressureData(self):
 		pass
@@ -57,3 +68,8 @@ class PressureModel:
 class SoluteModel:
 	pass
 
+## ---------------------------------------------------------
+## ---------------------------------------------------------
+## ---------------------------------------------------------
+
+main()
