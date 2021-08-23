@@ -56,12 +56,57 @@ class Plotting:
 	pass
 
 class DataInput:
-	def getPressureData(self):
-		pass
+	
+
 	def getConcentrationData(self):
 		pass
 
 class PressureModel:
+	def getPressureData(self)->None:
+		'''
+		Reads all relevant data from output.csv file
+		
+		Parameters : 
+		------------
+		None
+
+		Returns : 
+		---------
+		t : np.array
+			Time data that matches with other relevant quantities 
+
+		P : np.array
+			Relevant Pressure data in MPa
+
+		net : np.array
+			Overall net flow for the system in kg/s
+
+		TODO:
+			thinking of making this return nothing and only store as class data	
+		'''
+			# reads the files' values
+		vals = np.genfromtxt('output.csv', delimiter = ',', skip_header= 1, missing_values= 0)
+
+		# extracts the relevant data
+		self.time = vals[:,1]
+		self.pressure = vals[:,3]
+		self.pressure[0] = self.pressure[1] # there is only one missing value
+
+		prod = vals[:, 2]
+		injec = vals[:,4]
+
+		# cleans data
+		# for CO2 injection if no data is present then a rate of 0 is given for Pressure 
+		# it is given the most recent value
+		injec[np.isnan(injec)] = 0
+		
+		self.net = []
+
+		for i in range(len(prod)):
+			self.net.append(prod[i] - injec[i]) # getting net amount 
+
+		return 
+
 
 	pass
 
