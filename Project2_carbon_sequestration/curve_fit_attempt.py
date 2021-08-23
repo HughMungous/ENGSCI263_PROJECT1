@@ -33,35 +33,49 @@ def main():
 	return
 
 def Extrapolate(time, Extrapolate, P, C,time2):
-	inj = []
-	netFlow = []
-	for i in range(len(qCO2)):
-		if qCO2[i] != 0:
-			inj.append(qCO2[i])
-	average_net = statistics.mean(net)
-	average_injection = statistics.mean(inj)
+	
+
+	vals = np.genfromtxt('output.csv', delimiter = ',', skip_header= 1, missing_values= 0, usecols = [2,4]).T
+	injec = vals[1]
+	prod = vals[0]
+	injec[np.isnan(injec)] = 0
+
+
+	average_injection = statistics.mean(injec)
 	prediction = np.linspace(time,Extrapolate)
 	stakeholder = [0,1,2,3,4]
+	
 	amount = ['no injection', 'same amount', 'double the rate', 'triple the rate', 'CEL proposed']
 	outcomesP = []
+	outcomesC = []
 	colours = ['r','b','y','g','k']
 
 	for increase in stakeholder:
+		netFlow = []
+		for i in range(len(prod)):
+			netFlow.append(prod[i] - increase*injec[i])
+		netflow = statistics.mean(netFlow)
 		injection_rate = average_injection*increase
-		net_rate = average_net*increase
-		parsP = [net_rate,0,a,b,c]
-		parsC = []
+		parsP = [netflow,0,a,b,c]
 		solP, t = solve_pressure_ode(pressure_model, prediction[0], prediction[-1], 0.5, P[0], parsP, P, 114, extrapolation = True)
-		#solC, t = solve_solute_ode(solute_model, prediction[0], prediction[-1], 0.5, C[0], parsC, C, 114, extrapolation= True )
+		parsC = [injection_rate, solP, a, b, d, M0, P[0]]
+		solC, t = solve_solute_ode(solute_model, prediction[0],prediction[-1], 0.5, C[0], parsC, C, 114, extrapolation= True )
 		outcomesP.append(solP)
+		outcomesC.append(solC)
 	time2 = np.append(time2, t)
 	f, ax = plt.subplots(1, 1)
 	for i in range(len(outcomesP)):
 		ax.plot(time2[0:-1], outcomesP[i][0:-1], colours[i], label = 'Prediction' + ' for ' + amount[i])
-	
 	plt.axvline(2007.49, color = 'black', linestyle = '--', label = 'Calibration point')
 	ax.legend()
-	ax.set_title("Pressure flow in the Ohaaki geothermal field.")
+	ax.set_title("Pressure in the Ohaaki geothermal field.")
+	plt.show()
+	f, ax = plt.subplots(1, 1)
+	for i in range(len(outcomesP)):
+		ax.plot(time2[0:-1], outcomesC[i][0:-1], colours[i], label = 'Prediction' + ' for ' + amount[i])
+	plt.axvline(2007.49, color = 'black', linestyle = '--', label = 'Calibration point')
+	ax.legend()
+	ax.set_title("CO2 wt % in the Ohaaki geothermal field.")
 	plt.show()
 	return
 
@@ -106,8 +120,8 @@ def solve_solute_ode(f, t0, t1, dt , x0, pars, concentration, index, extrapolati
 	for k in range(index, index + nt - 1):
 		if extrapolation is False:
 			pars[0] = q[k]
-			pars[1] = P[k]
-		ys[k + 1] = improved_euler_step(f, ts[k - 90], ys[k], dt, x0, pars)
+		pars[1] = P[k]
+		ys[k + 1] = improved_euler_step(f, ts[k - index], ys[k], dt, x0, pars)
 	return ys, ts
 
 def solve_pressure_ode(f, t0, t1, dt , P0, pars, parray, index, extrapolation = False):
