@@ -144,7 +144,7 @@ class PressureModel:
 		dPdt = -a*q - b*(P-P0) - c*dqdt
 		return dPdt
 
-	def solve(self, t: List[float], y0: float, a: float, b: float, c: float)->List[float]:
+	def solve(self, t, y0: float, a: float, b: float, c: float):
 		""" Solves ode ...
 		
 		"""
@@ -155,15 +155,14 @@ class PressureModel:
 		result = 0.*t
 		result[0] = y0
 
-		pars = [0, a, b, c, 0]
+		params = [0, a, b, c, 0]
 
 		for k in range(1, nt):
 			# setting the value for q sink and dqdt
-			pars[0] = self.net[k]
-			pars[-1] = (self.net[k] - self.net[k-1]) / self.dt
-
-			# might not work - untested
-			result[k] = Helper.improved_euler_step(self.pressure_model, timeSpace[k], result[k-1], dt, y0, pars)
+			params[0] = self.net[k]
+			params[-1] = (self.net[k] - self.net[k-1]) / self.dt
+			
+			result[k] = Helper.improved_euler_step(self, self.model, t[k], result[k-1], self.dt, y0, params)
 
 		return result
 
@@ -181,7 +180,12 @@ class SoluteModel:
 ## ---------------------------------------------------------
 
 def main():
+
+	## 	TEST 1
+	model1 = PressureModel()
+	model1.getPressureData()
+	print(model1.solve(model1.time, model1.pressure[0], *model1.pars[2:]))
 	pass
 
 if __name__ == "__main__":
-	pass
+	main()
