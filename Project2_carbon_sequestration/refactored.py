@@ -62,27 +62,47 @@ class DataInput:
 		pass
 
 class PressureModel:
+	"""Class containing pressure model methods
+
+		Functions :
+
+			getPresureData : 
+				None -> None
+				reads in the data from output.csv adding it to the class data
+
+			model : 
+				float -> float
+				returns the first derivative of pressure with respect to time
+	TODO:
+
+		add other functions
+
+	"""
+	# def __init__(self):
+	# 	self.time = []
+	# 	self.pressure = []
+	# 	self.net = []
+		
 	def getPressureData(self)->None:
 		'''
-		Reads all relevant data from output.csv file
-		
-		Parameters : 
-		------------
-		None
+			Reads all relevant data from output.csv file
+			
+			Parameters : 
+			------------
+			None
 
-		Returns : 
-		---------
-		t : np.array
-			Time data that matches with other relevant quantities 
+			Returns : 
+			---------
+			None (instantiates class data)
 
-		P : np.array
-			Relevant Pressure data in MPa
+			t : np.array
+				Time data that matches with other relevant quantities 
 
-		net : np.array
-			Overall net flow for the system in kg/s
+			P : np.array
+				Relevant Pressure data in MPa
 
-		TODO:
-			thinking of making this return nothing and only store as class data	
+			net : np.array
+				Overall net flow for the system in kg/s
 		'''
 			# reads the files' values
 		vals = np.genfromtxt('output.csv', delimiter = ',', skip_header= 1, missing_values= 0)
@@ -91,6 +111,7 @@ class PressureModel:
 		self.time = vals[:,1]
 		self.pressure = vals[:,3]
 		self.pressure[0] = self.pressure[1] # there is only one missing value
+		self.net = []
 
 		prod = vals[:, 2]
 		injec = vals[:,4]
@@ -100,15 +121,18 @@ class PressureModel:
 		# it is given the most recent value
 		injec[np.isnan(injec)] = 0
 		
-		self.net = []
-
 		for i in range(len(prod)):
 			self.net.append(prod[i] - injec[i]) # getting net amount 
 
 		return 
 
+	def model(self, t: float, P: float, q: float, dqdt: float, a: float, b: float, c: float, P0: float)->float:
+		"""Returns the first derivative of pressure with respect to time
+		"""
+		dPdt = -a*q - b*(P-P0) - c*dqdt
+		return dPdt
 
-	pass
+	
 
 class SoluteModel:
 	pass
