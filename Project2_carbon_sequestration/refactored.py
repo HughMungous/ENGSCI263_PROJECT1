@@ -57,23 +57,6 @@ class Helper:
 		
 		return yk1
 
-class Plotting:
-	"""Class contianing plotting functions
-	
-	TODO:
-		plot pressure
-		plot solute
-		plot más?
-
-	"""
-	pass
-
-class DataInput:
-	
-
-	def getConcentrationData(self):
-		pass
-
 class PressureModel:
 	"""Class containing pressure model methods, instantiated using: newVar = PressureModel()
 
