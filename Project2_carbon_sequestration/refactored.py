@@ -92,7 +92,7 @@ class PressureModel:
 		self.time = []
 		self.pressure = []
 		self.net = []
-		self.pars = [1, 1, 0.0012653061224489797, 0.09836734693877551, 0.0032244897959183673] # maybe not under __init__?
+		self.pars = [1, 0.0012653061224489797, 0.09836734693877551, 0.0032244897959183673] # maybe not under __init__?
 		self.dt = 0.5
 
 	def getPressureData(self)->None:
@@ -123,6 +123,7 @@ class PressureModel:
 		self.time = vals[:,1]
 		self.pressure = vals[:,3]
 		self.pressure[0] = self.pressure[1] # there is only one missing value
+		self.pars[0] = self.pressure[0]
 		self.net = []
 
 		prod = vals[:, 2]
@@ -169,12 +170,13 @@ class PressureModel:
 	def optimise(self)->None:
 		"""Function which uses curve_fit() to optimise the paramaters for the ode
 		"""
+		self.pars = curve_fit(self.solve, self.time, self.pressure, self.pars)[0]
 		
-		pass
+		return  
 
 	def display(self)->None:
 		pass
-	
+
 
 class SoluteModel:
 	pass
@@ -188,7 +190,14 @@ def main():
 	## 	TEST 1
 	model1 = PressureModel()
 	model1.getPressureData()
-	print(model1.solve(model1.time, model1.pressure[0], *model1.pars[2:]))
+	solution1 = model1.solve(model1.time, *model1.pars)
+	model1.optimise()
+	solution2 = model1.solve(model1.time, *model1.pars)
+
+	# print(model1.pressure[:10])
+	# print(solution1[:10])
+	# print(solution2[:10])
+
 	pass
 
 if __name__ == "__main__":
