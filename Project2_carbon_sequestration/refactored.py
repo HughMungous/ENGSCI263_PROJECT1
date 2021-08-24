@@ -135,16 +135,17 @@ class PressureModel:
 		dPdt = -a*q - b*(P-P0) - c*dqdt
 		return dPdt
 
-	def solve(self, t: List[float], y0: float, a: float, b: float, c: float)->List[float]:
+	def solve(self, t: List[float], a: float, b: float, c: float, y0: float = 6.17)->List[float]:
 		""" Solves ode ...
 		
 		"""
+		## checking that the lengths for data match
 		nt = len(t)
 		if nt != len(self.net):
 			raise ValueError("If the original time data is not used then the net sink must be interpolated to fit")
 
-		result = 0.*t
-		result[0] = y0
+		result = 0.*t	# creating output array 
+		result[0] = y0	# setting the initial value
 
 		params = [0, a, b, c, 0]
 
@@ -157,10 +158,10 @@ class PressureModel:
 
 		return result
 
-	def optimise(self)->None:
+	def optimise(self, ignorePressure: bool = False)->None:
 		"""Function which uses curve_fit() to optimise the paramaters for the ode
 		"""
-		self.pars = curve_fit(self.solve, self.time, self.pressure, self.pars)[0]
+		self.pars = curve_fit(self.solve, self.time, self.pressure, self.pars[:4-ignorePressure])[0]
 		
 		return  
 
@@ -181,7 +182,7 @@ class PressureModel:
 
 		return
 		
-	def run(self)->None:
+	def run(self, ignorePressure: bool = False)->None:
 		"""This function runs everything and produces a plot of the analytical solution
 
 		TODO: 
@@ -190,7 +191,7 @@ class PressureModel:
 		
 		"""
 		self.getPressureData()
-		self.optimise()
+		self.optimise(ignorePressure)
 		self.analytical = self.solve(self.time, *self.pars)
 		self.plot()
 
@@ -224,6 +225,8 @@ class SoluteModel:
 
 			Returns : 
 			---------
+				None, modifies class data
+
 				t : np.array
 					Time data that matches with other relevant quantities 
 
@@ -244,17 +247,18 @@ class SoluteModel:
 
 		# reads all the data from excel file
 		vals = np.genfromtxt('output.csv', delimiter = ',', skip_header= 1, missing_values= 0)
-		# extracts the relevant data
-
+		
+		## extracting the relevant data
 		self.time = vals[:,1] 		# time values
 		self.pressure = vals[:,3] 	# Pressure values
 		self.qCO2 = vals[:,4] 		# CO2 injection values 
 		self.CO2_conc = vals[:,5]	# CO2 concentration values
 		
+		## Cleaning the data
 		self.qCO2[np.isnan(qCO2)] = 0 				# absence of injection values is 0
 		self.CO2_conc[np.isnan(CO2_conc)] = 0.03 	# inputting natural state 
 
-		self.pressure[0] = self.pressure[1]			# missinh initial pressure data point
+		self.pressure[0] = self.pressure[1]			# missing initial pressure data point
 
 		return 
 
@@ -303,7 +307,7 @@ class SoluteModel:
 
 		return dCdt
 
-	def solve(self)->List[float]:
+	def solve(self, t: List[float])->List[float]:
 		pass
 
 	def optimise(self)->None:
