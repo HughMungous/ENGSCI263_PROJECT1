@@ -182,7 +182,7 @@ class PressureModel:
 
 		return
 		
-	def run(self, ignorePressure: bool = False)->None:
+	def run(self, optimiseArgs: List[bool] = [False], plotArgs: List[str] = ['r', 'b'])->None:
 		"""This function runs everything and produces a plot of the analytical solution
 
 		TODO: 
@@ -191,9 +191,9 @@ class PressureModel:
 		
 		"""
 		self.getPressureData()
-		self.optimise(ignorePressure)
+		self.optimise(*optimiseArgs)
 		self.analytical = self.solve(self.time, *self.pars)
-		self.plot()
+		self.plot(*plotArgs)
 
 		return
 
