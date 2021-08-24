@@ -210,10 +210,53 @@ class SoluteModel:
 		- ...
 	"""
 	def __init__(self):
-		pass
+		self.time = []
+		self.pressure = []
+		self.qC02 = []
+		self.CO2_conc = []
 
 	def getConcentrationData(self)->None:
-		pass
+		'''	Reads all relevant data from output.csv file
+
+			Parameters : 
+			------------
+				None
+
+			Returns : 
+			---------
+				t : np.array
+					Time data that matches with other relevant quantities 
+
+				P : np.array
+					Relevant Pressure data in MPa
+
+				injec : np.array
+					Relevant CO2 injection data in kg/s
+
+				CO2_conc : np.array
+					Relevant concentrations of CO2 in wt %
+
+			Notes :
+			------
+				CO2 concentration before injection is assumed to be natural state
+				of 3 wt %. 
+		'''
+
+		# reads all the data from excel file
+		vals = np.genfromtxt('output.csv', delimiter = ',', skip_header= 1, missing_values= 0)
+		# extracts the relevant data
+
+		self.time = vals[:,1] 		# time values
+		self.pressure = vals[:,3] 	# Pressure values
+		self.qCO2 = vals[:,4] 		# CO2 injection values 
+		self.CO2_conc = vals[:,5]	# CO2 concentration values
+		
+		self.qCO2[np.isnan(qCO2)] = 0 				# absence of injection values is 0
+		self.CO2_conc[np.isnan(CO2_conc)] = 0.03 	# inputting natural state 
+
+		self.pressure[0] = self.pressure[1]			# missinh initial pressure data point
+
+		return 
 
 	def model(self, t: float, C: float, qC02: float, P: float, a: float, b: float, d: float, M0: float, P0: float = 6.17, C0: float = 0.03)->float:
 		''' Return the Solute derivative dC/dt at time, t, for given parameters.
