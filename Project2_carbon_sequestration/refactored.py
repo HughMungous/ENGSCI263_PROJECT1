@@ -1,13 +1,18 @@
 
 import ntpath
+
 import numpy as np
 from numpy.core.numeric import NaN
-from matplotlib import pyplot as plt
 from numpy.lib.function_base import interp
+
+from matplotlib import pyplot as plt
+
 from scipy.interpolate import interp1d
-import itertools
 from scipy.optimize import curve_fit
+
+import itertools
 import statistics
+from typing import List
 
 """
 Do you think we should generate a base class containing the basic ode? 
@@ -145,7 +150,7 @@ class PressureModel:
 		dPdt = -a*q - b*(P-P0) - c*dqdt
 		return dPdt
 
-	def solve(self, t, y0: float, a: float, b: float, c: float):
+	def solve(self, t: List[float], y0: float, a: float, b: float, c: float)->List[float]:
 		""" Solves ode ...
 		
 		"""
@@ -191,7 +196,9 @@ def main():
 	model1 = PressureModel()
 	model1.getPressureData()
 	solution1 = model1.solve(model1.time, *model1.pars)
+	# print(model1.pars)
 	model1.optimise()
+	# print(model1.pars)
 	solution2 = model1.solve(model1.time, *model1.pars)
 
 	# print(model1.pressure[:10])
