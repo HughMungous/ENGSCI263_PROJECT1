@@ -93,12 +93,13 @@ class PressureModel:
 		add other functions
 
 	"""
-	def __init__(self):
+	def __init__(self, pars = [1,1,1,1]):
 		self.time = []
 		self.pressure = []
 		self.analytical = []
 		self.net = []
-		self.pars = [1, 0.0012653061224489797, 0.09836734693877551, 0.0032244897959183673] # maybe not under __init__?
+		# self.pars = [1, 0.0012653061224489797, 0.09836734693877551, 0.0032244897959183673] # maybe not under __init__?
+		self.pars = pars
 		self.dt = 0.5
 
 	def getPressureData(self)->None:
@@ -171,7 +172,6 @@ class PressureModel:
 			
 			result[k] = Helper.improved_euler_step(self, self.model, t[k], result[k-1], self.dt, y0, params)
 
-		self.analytical = result
 		return result
 
 	def optimise(self)->None:
@@ -195,9 +195,22 @@ class PressureModel:
 		ax.set_title("Pressure in the Ohaaki geothermal field.")
 
 		plt.show()
+
 		return
 		
+	def run(self)->None:
+		"""This function runs everything and produces a plot of the analytical solution
 
+		TODO: 
+			-	include optional paramaters for extrapolation, uncertainty
+			- 	include the graph we used to validate our ode
+		
+		"""
+		self.getPressureData()
+		self.optimise()
+		self.analytical = self.solve(self.time, *self.pars)
+		self.plot()
+		return
 
 class SoluteModel:
 	pass
@@ -210,17 +223,20 @@ def main():
 
 	## 	TEST 1
 	model1 = PressureModel()
-	model1.getPressureData()
-	solution1 = model1.solve(model1.time, *model1.pars)
-	# print(model1.pars)
-	model1.optimise()
-	# print(model1.pars)
-	solution2 = model1.solve(model1.time, *model1.pars)
 
-	model1.plot()
-	# print(model1.pressure[:10])
-	# print(solution1[:10])
-	# print(solution2[:10])
+	# model1.getPressureData()
+	# solution1 = model1.solve(model1.time, *model1.pars)
+	# # print(model1.pars)
+	# model1.optimise()
+	# # print(model1.pars)
+	# solution2 = model1.solve(model1.time, *model1.pars)
+
+	# model1.plot()
+	# # print(model1.pressure[:10])
+	# # print(solution1[:10])
+	# # print(solution2[:10])
+
+	model1.run()
 
 	pass
 
