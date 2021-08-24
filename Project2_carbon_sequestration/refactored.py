@@ -172,6 +172,10 @@ class PressureModel:
 		
 		pass
 
+	def display(self)->None:
+		pass
+	
+
 class SoluteModel:
 	pass
 
