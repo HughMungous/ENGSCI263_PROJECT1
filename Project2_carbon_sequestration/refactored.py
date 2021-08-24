@@ -210,11 +210,45 @@ class PressureModel:
 		self.optimise()
 		self.analytical = self.solve(self.time, *self.pars)
 		self.plot()
+
 		return
 
 class SoluteModel:
-	pass
+	"""Class containing solute model methods, instantiated using: newVar = SoluteModel()
 
+		Data : 
+			- ...
+
+		Methods :
+			- ...
+
+	TODO:
+	
+		- ...
+	"""
+	def __init__(self):
+		pass
+
+	def getConcentrationData(self)->None:
+		pass
+
+	def model(self)->float:
+		pass
+
+	def solve(self)->List[float]:
+		pass
+
+	def optimise(self)->None:
+		pass
+
+	def interpolate(self):
+		pass
+
+	def plot(self)->None:
+		pass
+
+	def run(self)->None:
+		pass
 ## ---------------------------------------------------------
 ## ---------------------------------------------------------
 ## ---------------------------------------------------------
