@@ -96,6 +96,7 @@ class PressureModel:
 	def __init__(self):
 		self.time = []
 		self.pressure = []
+		self.analytical = []
 		self.net = []
 		self.pars = [1, 0.0012653061224489797, 0.09836734693877551, 0.0032244897959183673] # maybe not under __init__?
 		self.dt = 0.5
@@ -170,6 +171,7 @@ class PressureModel:
 			
 			result[k] = Helper.improved_euler_step(self, self.model, t[k], result[k-1], self.dt, y0, params)
 
+		self.analytical = result
 		return result
 
 	def optimise(self)->None:
@@ -179,8 +181,22 @@ class PressureModel:
 		
 		return  
 
-	def display(self)->None:
+	def interpolate(self):
 		pass
+	
+	def plot(self, c1: str = 'r', c2: str = 'b')->None:
+		f, ax = plt.subplots(1,1)
+
+		ax.plot(self.time,self.pressure, c1, label = "Measurements")
+		ax.plot(self.time,self.analytical, c2, label = "Analyitical Solution")
+
+		ax.legend()
+
+		ax.set_title("Pressure in the Ohaaki geothermal field.")
+
+		plt.show()
+		return
+		
 
 
 class SoluteModel:
@@ -201,6 +217,7 @@ def main():
 	# print(model1.pars)
 	solution2 = model1.solve(model1.time, *model1.pars)
 
+	model1.plot()
 	# print(model1.pressure[:10])
 	# print(solution1[:10])
 	# print(solution2[:10])
