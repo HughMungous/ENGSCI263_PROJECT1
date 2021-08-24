@@ -215,8 +215,50 @@ class SoluteModel:
 	def getConcentrationData(self)->None:
 		pass
 
-	def model(self)->float:
-		pass
+	def model(self, t: float, C: float, qC02: float, P: float, a: float, b: float, d: float, M0: float, P0: float = 6.17, C0: float = 0.03)->float:
+		''' Return the Solute derivative dC/dt at time, t, for given parameters.
+			Parameters:
+			-----------
+			t : float
+				Independent variable.
+			C : float
+				Dependent variable.
+			qCO2 : float
+				Source/sink rate.
+			a : float
+				Source/sink strength parameter.
+			b : float
+				Recharge strength parameter.
+			d  : float
+				Recharge strength parameter
+			P : float
+				Pressure at time point t
+			P0 : float
+				Ambient value of Pressure within the system.
+			M0 : float
+				Ambient value of Mass of the system
+			C0 : float
+				Ambient value of the dependent variable.
+			Returns:
+			--------
+			dCdt : float
+				Derivative of Pressure variable with respect to independent variable.
+		'''
+		if (P > P0):
+			C_1 = C
+			# see what happens
+			C_2 = C
+		else:
+			C_1 = C0
+			C_2 = 0
+
+		qLoss = (b/a)*(P-P0)*C_2*t # calculating CO2 loss to groundwater
+
+		qC02 = qC02 - qLoss # qCO2 after the loss
+
+		dCdt = (1 - C) * (qC02 / M0) - (b / (a*M0)) * (P - P0) * (C_1 - C) - d * (C - C0) # calculates the derivative
+
+		return dCdt
 
 	def solve(self)->List[float]:
 		pass
@@ -249,7 +291,7 @@ def main():
 	# solution2 = model1.solve(model1.time, *model1.pars)
 
 	# model1.plot()
-	# # print(model1.pressure[:10])
+	# # print(model1.pressure[:10]) 
 	# # print(solution1[:10])
 	# # print(solution2[:10])
 
