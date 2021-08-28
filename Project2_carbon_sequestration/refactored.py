@@ -30,6 +30,7 @@ class Helper:
 		pressure ode
 		solute ode?
 	"""
+	@staticmethod
 	def improved_euler_step(self, f, tk: float, yk: float, h: float, x0: float, pars)->float:
 		""" Compute a single Improved Euler step.
 		
