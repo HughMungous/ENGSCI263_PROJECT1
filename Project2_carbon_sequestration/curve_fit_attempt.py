@@ -30,16 +30,42 @@ def main():
 	C, P = testSetODEs()
 	time, Pressure = getPressureData()
 	Extrapolate(time[-1], 2050, P, C, time)
-	PressureBenchmark(Pressure[0], 1, 2, 0, 4)
+	PlotPressureBenchmark(Pressure)
 	return
 
-def PressureBenchmark(P0, a, b, c, q0):
+def SoluteBenchmark():
+	
+	return
+
+def PlotPressureBenchmark(Pressure):
 	time = np.arange(0,10, 0.5)
+	dt = 0.25
+	ts, ys, analytical,steady_state = PressureBenchmark(Pressure[0], 1, 2, 0, 4, time, dt)
+	f, ax = plt.subplots(1, 1)
+	ax.plot(time,analytical, 'b', label = 'Analtyical')
+	ax.plot(ts,ys, 'kx', label = 'Numerical')
+	ax.plot(ts,steady_state, 'b--', label = 'Steady State')
+	ax.legend()
+	ax.set_title("Analytcial vs Numerical Solution Benchmark")
+	plt.show()
+	time = np.arange(0,10, 1.1)
+	dt = 1.1
+	ts, ys, analytical,steady_state = PressureBenchmark(Pressure[0], 1, 2, 0, 4, time, dt)
+	f, ax = plt.subplots(1, 1)
+	ax.plot(time,analytical, 'b', label = 'Analtyical')
+	ax.plot(ts,ys, 'kx', label = 'Numerical')
+	ax.plot(ts,steady_state, 'b--', label = 'Steady State')
+	ax.legend()
+	ax.set_title("Instability at a large time step")
+	plt.show()
+	return
+
+def PressureBenchmark(P0, a, b, c, q0, time, dt):
 	analytical = []
 	for i in range(len(time)):
 		P = P0 + ((-a*q0)/b)*(1-np.exp(-b*time[i]))
 		analytical.append(P)
-	dt = 0.1
+
 	nt = int(np.ceil((time[-1]-time[0])/dt))
 	ts = time[0]+np.arange(nt+1)*dt
 	ys = ts*0.
@@ -51,14 +77,8 @@ def PressureBenchmark(P0, a, b, c, q0):
 		steady_state.append(4.17)
 		ys[i+1] = improved_euler_step(pressure_model, ts[i], ys[i], dt, P0, pars)
 
-	f, ax = plt.subplots(1, 1)
-	ax.plot(time,analytical, 'b', label = 'Analtyical')
-	ax.plot(ts,ys, 'kx', label = 'Numerical')
-	ax.plot(ts,steady_state, 'b--', label = 'Steady State')
-	ax.legend()
-	ax.set_title("Analytcial vs Numerical Solution Benchmark")
-	plt.show()
-	return 
+	
+	return ts,ys,analytical, steady_state
 
 def Extrapolate(time, Extrapolate, P, C,time2):
 	
