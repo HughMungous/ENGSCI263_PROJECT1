@@ -30,7 +30,35 @@ def main():
 	C, P = testSetODEs()
 	time, Pressure = getPressureData()
 	Extrapolate(time[-1], 2050, P, C, time)
+	PressureBenchmark(Pressure[0], 1, 2, 0, 4)
 	return
+
+def PressureBenchmark(P0, a, b, c, q0):
+	time = np.arange(0,10, 0.5)
+	analytical = []
+	for i in range(len(time)):
+		P = P0 + ((-a*q0)/b)*(1-np.exp(-b*time[i]))
+		analytical.append(P)
+	dt = 0.1
+	nt = int(np.ceil((time[-1]-time[0])/dt))
+	ts = time[0]+np.arange(nt+1)*dt
+	ys = ts*0.
+	steady_state = []
+	steady_state.append(4.17)
+	ys[0] = P0
+	pars = [q0,0, a,b,c] # dqdt is 0 as constant flow rate
+	for i in range(nt):
+		steady_state.append(4.17)
+		ys[i+1] = improved_euler_step(pressure_model, ts[i], ys[i], dt, P0, pars)
+
+	f, ax = plt.subplots(1, 1)
+	ax.plot(time,analytical, 'b', label = 'Analtyical')
+	ax.plot(ts,ys, 'kx', label = 'Numerical')
+	ax.plot(ts,steady_state, 'b--', label = 'Steady State')
+	ax.legend()
+	ax.set_title("Analytcial vs Numerical Solution Benchmark")
+	plt.show()
+	return 
 
 def Extrapolate(time, Extrapolate, P, C,time2):
 	
