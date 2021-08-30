@@ -31,6 +31,43 @@ def main():
 	time, Pressure = getPressureData()
 	Extrapolate(time[-1], 2050, P, C, time)
 	PlotPressureBenchmark(Pressure)
+	PlotMisfit(time, C, P)
+	return
+
+def PlotMisfit(time, C, P ):
+	pressure_time = np.genfromtxt('data/cs_p.txt', skip_header = 1,delimiter = ',', usecols = 0)
+	pressure = np.genfromtxt('data/cs_p.txt', skip_header = 1,delimiter = ',', usecols = 1)
+	P_Result = []
+	for i in range(len(pressure_time)):
+		for j in range(len(time)):
+			if(time[j] == pressure_time[i]):
+				P_Result.append(P[j])
+	misfit_P = []
+	for i in range(len(P_Result)):
+		misfit_P.append(pressure[i] - P_Result[i])
+	f, ax = plt.subplots(1, 1)
+	ax.plot(pressure_time,misfit_P, 'y', label = 'Best Fit Pressure LPM Model')
+	ax.legend()
+	ax.set_ylabel('Pressure [MPa]')
+	ax.set_title("Misfit")
+	plt.show()
+	
+	solute_time = np.genfromtxt('data/cs_cc.txt', skip_header = 1, delimiter = ',', usecols = 0)
+	solute = np.genfromtxt('data/cs_cc.txt', skip_header = 1, delimiter = ',', usecols = 1)
+	C_Result = []
+	for i in range(len(solute_time)):
+		for j in range(len(time)):
+			if(time[j] == solute_time[i]):
+				C_Result.append(C[j])
+	misfit_C = []
+	for i in range(len(C_Result)):
+		misfit_C.append(solute[i] - C_Result[i])
+	f, ax = plt.subplots(1, 1)
+	ax.plot(solute_time,misfit_C, 'y', label = 'Best Fit Solute LPM Model')
+	ax.legend()
+	ax.set_ylabel('CO2 [wt %]')
+	ax.set_title("Misfit")
+	plt.show()
 	return
 
 def SoluteBenchmark():
