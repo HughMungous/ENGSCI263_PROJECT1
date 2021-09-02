@@ -273,7 +273,7 @@ def CurveFit():
 	# initial guesses come from MSPE A function which brute forces the terms
 	pars = [0.0012653061224489797,0.09836734693877551,0.0032244897959183673]
 
-	autofit_pars1 = curve_fit(solve_Pressure_ode, time[0:91], Pressure[0:91])
+	autofit_pars1 = curve_fit(solve_Pressure_ode, time[0:91], Pressure[0:91], pars)
 	sol_pressure = solve_Pressure_ode(time[0:91], *autofit_pars1[0])
 
 	global pressure
