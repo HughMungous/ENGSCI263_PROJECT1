@@ -55,7 +55,7 @@ class Helper:
 		f0 = f(tk, yk, *pars, x0)
 		f1 = f(tk + h, yk + h*f0, *pars,x0)
 		yk1 = yk + h*0.5*(f0 + f1)
-		
+
 		return yk1
 
 class PressureModel:
@@ -82,7 +82,7 @@ class PressureModel:
 		self.pressure = []
 		self.analytical = []
 		self.net = []
-		# self.pars = [1, 0.0012653061224489797, 0.09836734693877551, 0.0032244897959183673] # maybe not under __init__?
+		#self.pars = [1, 0.0012653061224489797, 0.09836734693877551, 0.0032244897959183673] # maybe not under __init__?
 		self.pars = pars
 		self.dt = 0.5
 
