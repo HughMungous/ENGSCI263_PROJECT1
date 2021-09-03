@@ -28,8 +28,51 @@ k = 0
 dt = 0.5
 
 def main():
+
     Model_Fit()
+
     Extrapolate(2050)
+
+    PlotMisfit()
+
+    return
+
+def PlotMisfit():
+    pressure_time = np.genfromtxt('data/cs_p.txt', skip_header = 1,delimiter = ',', usecols = 0)
+    pressure = np.genfromtxt('data/cs_p.txt', skip_header = 1,delimiter = ',', usecols = 1)
+    # we dont have data that matches with time values in pressure array
+    # so we interpret the SOL_P stuff
+    P_Result = []
+    for i in range(len(pressure_time)):
+        P_Result.append(np.interp(pressure_time[i], time_fit, P_SOL))
+    misfit_P = []
+    for i in range(len(P_Result)):
+        misfit_P.append(pressure[i] - P_Result[i])
+
+    f, ax = plt.subplots(1, 1)
+    ax.plot(pressure_time,misfit_P, 'rx')
+    ax.axhline(0, color = 'black', linestyle = '--')
+    ax.set_ylabel('Pressure [MPa]')
+    ax.set_xlabel('Time [years]')
+    ax.set_title("Best Fit Pressure LPM Model")
+    plt.show()
+
+    solute_time = np.genfromtxt('data/cs_cc.txt', skip_header = 1, delimiter = ',', usecols = 0)
+    solute = np.genfromtxt('data/cs_cc.txt', skip_header = 1, delimiter = ',', usecols = 1)
+    C_Result = []
+    for i in range(len(solute_time)):
+        C_Result.append(np.interp(solute_time[i], time_fit, C_SOL))
+    misfit_C = []
+    for i in range(len(C_Result)):
+        misfit_C.append(solute[i] - C_Result[i])
+    print(len(solute))
+    print(len(misfit_C))
+    f, ax = plt.subplots(1, 1)
+    ax.plot(solute_time,misfit_C, 'rx')
+    ax.axhline(0, color = 'black', linestyle = '--')
+    ax.set_ylabel('CO2 [wt %]')
+    ax.set_title("Best Fit Solute LPM Model")
+    plt.show()
     return
     
 def Model_Fit():
@@ -106,15 +149,20 @@ def Extrapolate(t):
 
     ax.axvline(time[91], color = 'black', linestyle = '--', label = 'Calibration point')
     ax2.axvline(time[91], color = 'black', linestyle = '--', label = 'Calibration point')
+
     ax.legend()
     ax2.legend()
+
     ax2.set_title("Weight Percentage of CO2 in Ohaaki geothermal field")
     ax2.set_xlabel("Time [years]")
     ax2.set_ylabel("Weight Percent CO2 [wt %]")
+
     ax2.axhline(.1, color = 'cyan', linestyle = '--', label = 'Corrosive Point')
+
     ax.set_title("Pressure in the Ohaaki geothermal field.")
     ax.set_ylabel("Pressure [MPa]")
     ax.set_xlabel("Time [years]")
+
     plt.show()
     plt.close(f1)
     plt.show()
