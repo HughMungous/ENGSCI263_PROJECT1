@@ -193,6 +193,7 @@ def Extrapolate(t):
 
     ax.axvline(time[91], color = 'black', linestyle = '--', label = 'Calibration point')
     ax2.axvline(time[91], color = 'black', linestyle = '--', label = 'Calibration point')
+    ax2.axhline(.1, color = 'cyan', linestyle = '--', label = 'Corrosive Point')
 
     ax.legend()
     ax2.legend()
@@ -200,8 +201,6 @@ def Extrapolate(t):
     ax2.set_title("Weight Percentage of CO2 in Ohaaki geothermal field")
     ax2.set_xlabel("Time [years]")
     ax2.set_ylabel("Weight Percent CO2 [wt %]")
-
-    ax2.axhline(.1, color = 'cyan', linestyle = '--', label = 'Corrosive Point')
 
     ax.set_title("Pressure in the Ohaaki geothermal field.")
     ax.set_ylabel("Pressure [MPa]")
