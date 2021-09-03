@@ -28,8 +28,95 @@ k = 0
 dt = 0.5
 
 def main():
+
     Model_Fit()
+
     Extrapolate(2050)
+
+    PlotMisfit()
+
+    BenchMark()
+    return
+
+def BenchMark():
+    dt = 0.25
+    time = np.arange(0, 10, dt)
+    global net
+    net = 4
+    a = 1
+    b = 2
+    c = 0
+    q0 = 4
+    ys, analytical = PressureBenchmark(P[0], a, b, c, q0, time, dt)
+    steady_state = P[0] - (a*q0)/b
+    f, ax = plt.subplots(1, 1)
+    ax.plot(time,analytical, 'b', label = 'Analtyical')
+    ax.plot(time, ys, 'kx', label = 'Numerical')
+    ax.axhline(steady_state, linestyle = '--', color = 'red')
+    ax.legend()
+    ax.set_title("Analytcial vs Numerical Solution Benchmark")
+    plt.show()
+    dt = 1.1
+    time = np.arange(0,10, dt)
+    ys, analytical = PressureBenchmark(P[0], 1, 2, 0, 4, time, dt)
+    f, ax = plt.subplots(1, 1)
+    ax.plot(time,analytical, 'b', label = 'Analtyical')
+    ax.plot(time,ys, 'kx', label = 'Numerical')
+    ax.axhline(steady_state, linestyle = '--', color = 'red')
+    ax.legend()
+    ax.set_title("Instability at a large time step")
+    plt.show()
+    return
+
+def PressureBenchmark(P0, a, b , c, q0, time, dt):
+    analytical = []
+    for i in range(len(time)):
+        P = P0 + ((-a*q0)/b)*(1-np.exp(-b*time[i]))
+        analytical.append(P)
+    nt = int(np.ceil((time[-1]-time[0])/dt))
+    ts = time[0]+np.arange(nt+1)*dt
+    ys = ts*0.
+    ys[0] = P0
+    pars = [a,b,c]
+    for i in range(nt):
+        ys[i+1] = improved_euler_step(PressureModel, ts[i], ys[i], dt, pars)
+    return ys, analytical
+
+def PlotMisfit():
+    pressure_time = np.genfromtxt('data/cs_p.txt', skip_header = 1,delimiter = ',', usecols = 0)
+    pressure = np.genfromtxt('data/cs_p.txt', skip_header = 1,delimiter = ',', usecols = 1)
+    # we dont have data that matches with time values in pressure array
+    # so we interpret the SOL_P stuff
+    P_Result = []
+    for i in range(len(pressure_time)):
+        P_Result.append(np.interp(pressure_time[i], time_fit, P_SOL))
+    misfit_P = []
+    for i in range(len(P_Result)):
+        misfit_P.append(pressure[i] - P_Result[i])
+
+    f, ax = plt.subplots(1, 1)
+    ax.plot(pressure_time,misfit_P, 'rx')
+    ax.axhline(0, color = 'black', linestyle = '--')
+    ax.set_ylabel('Pressure [MPa]')
+    ax.set_xlabel('Time [years]')
+    ax.set_title("Best Fit Pressure LPM Model")
+    plt.show()
+
+    solute_time = np.genfromtxt('data/cs_cc.txt', skip_header = 1, delimiter = ',', usecols = 0)
+    solute = np.genfromtxt('data/cs_cc.txt', skip_header = 1, delimiter = ',', usecols = 1)
+    C_Result = []
+    for i in range(len(solute_time)):
+        C_Result.append(np.interp(solute_time[i], time_fit, C_SOL))
+    misfit_C = []
+    for i in range(len(C_Result)):
+        misfit_C.append(solute[i] - C_Result[i])
+
+    f, ax = plt.subplots(1, 1)
+    ax.plot(solute_time,misfit_C, 'rx')
+    ax.axhline(0, color = 'black', linestyle = '--')
+    ax.set_ylabel('CO2 [wt %]')
+    ax.set_title("Best Fit Solute LPM Model")
+    plt.show()
     return
     
 def Model_Fit():
@@ -106,15 +193,20 @@ def Extrapolate(t):
 
     ax.axvline(time[91], color = 'black', linestyle = '--', label = 'Calibration point')
     ax2.axvline(time[91], color = 'black', linestyle = '--', label = 'Calibration point')
+
     ax.legend()
     ax2.legend()
+
     ax2.set_title("Weight Percentage of CO2 in Ohaaki geothermal field")
     ax2.set_xlabel("Time [years]")
     ax2.set_ylabel("Weight Percent CO2 [wt %]")
+
     ax2.axhline(.1, color = 'cyan', linestyle = '--', label = 'Corrosive Point')
+
     ax.set_title("Pressure in the Ohaaki geothermal field.")
     ax.set_ylabel("Pressure [MPa]")
     ax.set_xlabel("Time [years]")
+
     plt.show()
     plt.close(f1)
     plt.show()
@@ -197,6 +289,81 @@ def improved_euler_step(f, tk, yk, h, pars):
 	f1 = f(tk + h, yk + h*f0, *pars) # calculates f1 using fuctions
 	yk1 = yk + h*(f0*0.5 + f1*0.5) # calculates the new y value
 	return yk1
+
+def MSPE_A():
+	'''
+	Using MSPE as metric for brute-force calculating coefficients of the pressure ODE.
+	Parameters : 
+	------------
+	None
+	Returns : 
+	---------
+	A : float
+		Best parameter one for ODE model
+	B : float
+		Best parameter two for ODE model
+	C : float
+		Best parameter three for ODE model
+	Generates plots of various ODE models, best ODE model, and MSPE wrt. A    
+	
+	'''
+
+	# Experimental Data, defining testing range for coefficient, constants
+	time, Pressure ,netFlow = getPressureData()
+	A = np.linspace(0.001,0.0015,50)
+	# A = 9.81/(0.15*A)
+	B = np.linspace(0.08,0.11,50)
+	C = np.linspace(0.002,0.006,50)
+	dt = 0.5
+	MSPE_best = float('inf')
+	best_A = 1000
+	best_B = 1000
+	best_C = 1000
+
+
+	# Modelling ODE for each combination of A,B,C
+	for A_i,B_i,C_i in itertools.product(A,B,C):
+		pars = [netFlow,A_i,B_i,C_i,1]
+		sol_time, sol_pressure = solve_Pressure_ode(pressure_model, time[0], time[-1], dt , Pressure[0], pars)
+
+		# Interpolating for comparison of MSE
+		f = interp1d(sol_time,sol_pressure)
+		analytic_pressure = f(time)
+		diff_array = np.subtract(analytic_pressure,Pressure)
+		squared_array = np.square(diff_array)
+		MSPE = squared_array.mean()
+
+		print(A_i)
+
+		if (MSPE < MSPE_best):
+			MSPE_best = MSPE
+			best_A = A_i
+			best_B = B_i
+			best_C = C_i
+
+
+	
+	# Plotting best fit ODE
+	pars = [netFlow,best_A,best_B,best_C,1]
+	sol_time, sol_pressure = solve_Pressure_ode(pressure_model, time[0], time[-1], dt , Pressure[0], pars)
+
+	# Printout of results
+	txt = "Best coefficient {} is {}"
+	print(txt.format("A",best_A))
+	print(txt.format("B",best_B))
+	print(txt.format("C",best_C))
+	print("Mean Squared Error is {}".format(MSPE_best))
+
+	
+	f, ax2 = plt.subplots(1, 1)
+	ax2.plot(sol_time,sol_pressure, 'b', label = 'ODE')
+	ax2.plot(time,Pressure, 'r', label = 'DATA')
+	ax2.set_title("Best fit A coefficient")
+	ax2.legend()
+	plt.show()
+		
+
+	return best_A,best_B,best_C
 
 if __name__ == "__main__":
 	 main()
