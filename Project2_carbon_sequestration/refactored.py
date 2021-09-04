@@ -55,7 +55,7 @@ class Helper:
 		f0 = f(tk, yk, *pars, x0)
 		f1 = f(tk + h, yk + h*f0, *pars,x0)
 		yk1 = yk + h*0.5*(f0 + f1)
-		
+
 		return yk1
 
 class PressureModel:
