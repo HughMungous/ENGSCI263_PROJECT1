@@ -82,7 +82,6 @@ class PressureModel:
 		self.pressure = []
 		self.analytical = []
 		self.net = []
-		# self.pars = [1, 0.0012653061224489797, 0.09836734693877551, 0.0032244897959183673] # maybe not under __init__?
 		self.pars = pars
 		self.dt = 0.5
 
@@ -107,7 +106,7 @@ class PressureModel:
 			net : np.array
 				Overall net flow for the system in kg/s
 		'''
-			# reads the files' values
+		# reads the files' values
 		vals = np.genfromtxt('output.csv', delimiter = ',', skip_header= 1, missing_values= 0)
 
 		# extracts the relevant data
@@ -180,10 +179,10 @@ class PressureModel:
 		ax.set_title("Pressure in the Ohaaki geothermal field.")
 
 		plt.show()
-
-		return
 		
-	def run(self, optimiseArgs: List[bool] = [False], plotArgs: List[str] = ['r', 'b'])->None:
+		return
+
+	def run(self, optimiseArgs: List[bool] = [False], plotArgs: List[str] = ['r','b'])->None:
 		"""This function runs everything and produces a plot of the analytical solution
 
 		TODO: 
@@ -260,7 +259,7 @@ class SoluteModel:
 		self.CO2_conc[np.isnan(CO2_conc)] = 0.03 	# inputting natural state 
 
 		self.pressure[0] = self.pressure[1]			# missing initial pressure data point
-
+		
 		return 
 
 	def model(self, t: float, C: float, qC02: float, P: float, a: float, b: float, d: float, M0: float, P0: float = 6.17, C0: float = 0.03)->float:
