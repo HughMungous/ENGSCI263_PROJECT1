@@ -26,6 +26,7 @@ M0 = 0
 extraPressure = []
 k = 0
 dt = 0.5
+C_SOL = []
 
 def main():
 
@@ -123,7 +124,7 @@ def PlotMisfit():
     
 def Model_Fit():
     pars = [0.0012653061224489797,0.09836734693877551,0.0032244897959183673]
-    bestfit_pars = curve_fit(SolvePressureODE, time[0:92], P[0:92], pars, bounds = ([0,0,0.0032],[1.,1.,1.]))
+    bestfit_pars = curve_fit(SolvePressureODE, time[0:92], P[0:92], pars, bounds = (0, [1,1,1]))
     
     global a, b, c, time_fit, P_SOL
     a = bestfit_pars[0][0]
@@ -142,7 +143,7 @@ def Model_Fit():
     ax.set_title("Pressure flow in the Ohaaki geothermal field.")
     plt.show()
 
-    pars = [0.0001,10000000]
+    pars = [0.05,1000000]
 
     bestfit_pars = curve_fit(SolveSoluteODE, time[0:92], C[0:92], pars)
 
@@ -164,14 +165,13 @@ def Model_Fit():
 def Extrapolate(t):
 
     inject = np.genfromtxt('output.csv', delimiter = ',', skip_header= 1, missing_values= 0, usecols = 4)
-    inject[np.isnan(inject)] = 0
-    average_injection = statistics.mean(inject)
-    
+    inject = inject[-2]
+        
     prediction = np.arange(time_fit[-1],t, dt)
     
-    stakeholder = [0,1,2,3,4]
-    amount = ['no injection', 'same amount', 'double the rate', 'triple the rate', 'CEL proposed']
-    colours = ['r','b','y','g','k']
+    stakeholder = [0,1,2,4]
+    amount = ['no injection', 'same amount', 'double the rate', 'CEL proposed']
+    colours = ['r','b','y','k']
 
     global extrapolation
     extrapolation = True
@@ -181,10 +181,10 @@ def Extrapolate(t):
 
     for i in range(len(stakeholder)):
         global net
-        net = prod - stakeholder[i]*inject
-        net = statistics.mean(net)
+        net = prod[-1] - stakeholder[i]*inject
+       # net = statistics.mean(net)
         global injec
-        injec = average_injection*stakeholder[i]
+        injec = inject*stakeholder[i]
         pars = [a,b,c]
         global extraPressure
         extraPressure = SolvePressureODE(prediction, *pars)
@@ -248,7 +248,7 @@ def SoluteModel(t, conc, d, M0):
     else:
         C1 = C[0]
         C2 = 0
-    
+        
     qloss = (b/a)*(pressure - P[0])*C2*t
 
     qCO2 -= qloss
