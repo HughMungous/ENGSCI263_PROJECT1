@@ -1,5 +1,5 @@
 import numpy as np
-from numpy.core.numeric import NaN
+from numpy.core.numeric import NaN, _move_axis_to_0
 from matplotlib import pyplot as plt
 from numpy.lib.function_base import interp
 from scipy.interpolate import interp1d
@@ -53,9 +53,9 @@ def BenchMark():
     f, ax = plt.subplots(1, 1)
     ax.plot(time,analytical, 'b', label = 'Analtyical')
     ax.plot(time, ys, 'kx', label = 'Numerical')
-    ax.axhline(steady_state, linestyle = '--', color = 'red')
+    ax.axhline(steady_state, linestyle = '--', color = 'red', label = 'steady state')
     ax.legend()
-    ax.set_title("Analytcial vs Numerical Solution Benchmark")
+    ax.set_title("Analytcial vs Numerical Solution Benchmark for Pressure ODE")
     plt.show()
     dt = 1.1
     time = np.arange(0,10, dt)
@@ -63,13 +63,54 @@ def BenchMark():
     f, ax = plt.subplots(1, 1)
     ax.plot(time,analytical, 'b', label = 'Analtyical')
     ax.plot(time,ys, 'kx', label = 'Numerical')
-    ax.axhline(steady_state, linestyle = '--', color = 'red')
+    ax.axhline(steady_state, linestyle = '--', color = 'red', label = 'steady state')
     ax.legend()
-    ax.set_title("Instability at a large time step")
+    ax.set_title("Instability at a large time step for Pressure ODE")
     plt.show()
-
-    # need to benchmark of Solute ODE
+    dt = 0.25
+    time = np.arange(0, 10, dt)
+    global injec
+    injec = 1
+    a = 1
+    b = 2
+    d = 3
+    M0 = 1
+    ys, analytical = SoluteBenchmark(C[0], injec, a, b, d, M0, P[0], time, dt)
+    steady_state = ((injec/M0) + d*C[0])/((injec/M0) + d)
+    f, ax = plt.subplots(1, 1)
+    ax.plot(time,analytical, 'b', label = 'Analtyical')
+    ax.plot(time, ys, 'kx', label = 'Numerical')
+    ax.axhline(steady_state, linestyle = '--', color = 'red', label = 'steady state')
+    ax.legend()
+    ax.set_title("Analytcial vs Numerical Solution Benchmark for Solute ODE")
+    plt.show()
+    dt = 0.9
+    time = np.arange(0,10, dt)
+    ys, analytical = SoluteBenchmark(C[0], injec, a, b, d, M0, P[0], time, dt)
+    f, ax = plt.subplots(1, 1)
+    ax.plot(time,analytical, 'b', label = 'Analtyical')
+    ax.plot(time,ys, 'kx', label = 'Numerical')
+    ax.axhline(steady_state, linestyle = '--', color = 'red', label = 'steady state')
+    ax.legend()
+    ax.set_title("Instability at a large time step for Solute ODE")
+    plt.show()
     return
+
+def SoluteBenchmark(C0, qCO2, a, b, d, M0, P0, time, dt):
+    analytical = []
+    for i in range(len(time)):
+        k = qCO2/M0
+        L = (k*C0 - k)/(k + d)
+        anaC = (k + (d * C0))/(k + d) + L/(np.exp(k*time[i]+d*time[i]))
+        analytical.append(anaC)
+    nt = int(np.ceil((time[-1]-time[0])/dt))
+    ts = time[0]+np.arange(nt+1)*dt
+    ys = ts*0.
+    ys[0] = C[0]
+    pars = [d,M0,P0]
+    for i in range(nt):
+        ys[i+1] = improved_euler_step(SoluteModel, ts[i], ys[i], dt, pars)
+    return ys, analytical
 
 def PressureBenchmark(P0, a, b , c, q0, time, dt):
     analytical = []
