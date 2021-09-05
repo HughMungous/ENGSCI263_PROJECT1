@@ -1,6 +1,7 @@
 
 import numpy as np
 from typing import List
+from nicer_code import *
 
 def grid_search(pars: List[float], N: int):
 	''' This function implements a grid search to compute the posterior over a and b.
@@ -26,10 +27,6 @@ def grid_search(pars: List[float], N: int):
 	# 3. COMPUTE the posterior probability distribution
 	# 4. ANSWER the questions in the lab document
 
-	# 1. define parameter ranges for the grid search
-	# a_best = 0.0047
-	# b_best = 0.26
-
 	# number of values considered for each parameter within a given interval
 	# N = 51	
 	
@@ -50,8 +47,10 @@ def grid_search(pars: List[float], N: int):
 	
 	# TODO: data for calibration?
 	# tp,po = np.genfromtxt('wk_pressure_history.csv', delimiter = ',')[:28,:].T
-
+	time , P = np.genfromtxt('output.csv', delimiter = ',', skip_header= 1, missing_values= 0, usecols = [1,3]).T
+	P[0] = P[1]
 	# error variance - 2 bar
+	# what should the variance be?
 	v = 2.
 
 	# grid search algorithm
@@ -66,7 +65,8 @@ def grid_search(pars: List[float], N: int):
 			#pm =
 			#S[i,j] =
 			# TODO: add solve LPM
-			pm = solve_lpm(tp,a[i],b[j])
+			# pm = solve_lpm(tp,a[i],b[j])
+			# pm = SolvePressureODE(tp,a[i],b[j])
 			S[i,j] = np.sum((po-pm)**2)/v
 	
 	# 4. compute the posterior
@@ -90,5 +90,12 @@ def model_ensemble():
 	pass
 
 if __name__ == "__main__":
-	# grid_search([1,1,1,1],4)
+	# from curve_fit
+	# a = 0.0017104938734549206
+	# b = 0.13253822480925537
+	# c = 0.0032000000000000006
+	# pars = [a,b,c] 
+	# d = 0.1715290124109858
+	# M0 = 11920.63106161153
+	grid_search([1,1,1,1],4)
 	pass

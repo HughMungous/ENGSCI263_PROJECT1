@@ -66,6 +66,8 @@ def BenchMark():
     ax.legend()
     ax.set_title("Instability at a large time step")
     plt.show()
+
+    # need to benchmark of Solute ODE
     return
 
 def PressureBenchmark(P0, a, b , c, q0, time, dt):
