@@ -28,13 +28,16 @@ def grid_search(pars: List[float], N: int):
 	# 4. ANSWER the questions in the lab document
 
 	# number of values considered for each parameter within a given interval
-	# N = 51	
+	N = 51	
 	
 	grid = [np.linspace(estimate/2,estimate*1.5, N) for estimate in pars]
 
+	a_best = 0.0017283277761716083
+	b_best = 0.13396958796250272
+	c_best = 1.379472907357251e-19
 	# vectors of parameter values
-	# a = np.linspace(a_best/2,a_best*1.5, N)
-	# b = np.linspace(b_best/2,b_best*1.5, N)
+	a = np.linspace(a_best/2,a_best*1.5, N)
+	b = np.linspace(b_best/2,b_best*1.5, N)
 
 	# grid of parameter values: returns every possible combination of parameters in a and b
 	axis = np.meshgrid(*grid, indexing='ij')
@@ -51,7 +54,7 @@ def grid_search(pars: List[float], N: int):
 	P[0] = P[1]
 	# error variance - 2 bar
 	# what should the variance be?
-	v = 2.
+	v = 0.6
 
 	# grid search algorithm
 
@@ -65,20 +68,21 @@ def grid_search(pars: List[float], N: int):
 			#pm =
 			#S[i,j] =
 			# TODO: add solve LPM
-			# pm = solve_lpm(tp,a[i],b[j])
+			# pars = [a[i], b[j],0]
+			# pm = SolvePressureODE(time, *pars)
 			# pm = SolvePressureODE(tp,a[i],b[j])
-			S[i,j] = np.sum((po-pm)**2)/v
+			S[i,j] = np.sum((P-pm)**2)/v
 	
 	# 4. compute the posterior
-	P = np.exp(-S/2.)
+	Post = np.exp(-S/2.)
 
 	# normalize to a probability density function
 	# TODO: change this for generalised
-	Pint = np.sum(P)*(a[1]-a[0])*(b[1]-b[0])
-	P = P/Pint
+	Pint = np.sum(Post)*(a[1]-a[0])*(b[1]-b[0])
+	Post = Post/Pint
 
 	# plot posterior parameter distribution
-	# plot_posterior(a, b, P=P)
+	# plot_posterior(a, b, P=Post)
 
 	return axis,P
 	
