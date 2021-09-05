@@ -55,15 +55,20 @@ def grid_search(pars: List[float], N: int):
 	v = 2.
 
 	# grid search algorithm
+
 	# TODO: this needs be changed to recursive for n dimensions
+	# def inner_func(idx: int):
+	# 	pass
+
 	for i in range(len(a)):
 		for j in range(len(b)):
 			# 3. compute the sum of squares objective function at each value 
 			#pm =
 			#S[i,j] =
+			# TODO: add solve LPM
 			pm = solve_lpm(tp,a[i],b[j])
 			S[i,j] = np.sum((po-pm)**2)/v
-
+	
 	# 4. compute the posterior
 	P = np.exp(-S/2.)
 
