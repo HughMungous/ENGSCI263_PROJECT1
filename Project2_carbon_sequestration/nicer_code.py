@@ -123,7 +123,7 @@ def PlotMisfit():
     return
     
 def Model_Fit():
-    pars = [0.0012653061224489797,0.09836734693877551,0.0032244897959183673]
+    pars = [0.00187,0.153,0.00265]
     bestfit_pars = curve_fit(SolvePressureODE, time[0:92], P[0:92], pars, bounds = (0, [1,1,1]))
     
     global a, b, c, time_fit, P_SOL
@@ -143,13 +143,14 @@ def Model_Fit():
     ax.set_title("Pressure flow in the Ohaaki geothermal field.")
     plt.show()
 
-    pars = [0.05,1000000]
+    pars = [0.001,8012346, 6.17]
 
-    bestfit_pars = curve_fit(SolveSoluteODE, time[0:92], C[0:92], pars)
+    bestfit_pars = curve_fit(SolveSoluteODE, time[0:92], C[0:92], pars, bounds = ([0,0,5], [10,10000000,10]))
 
-    global d, M0, C_SOL
+    global d, M0, C_SOL, P0
     d = bestfit_pars[0][0]
     M0 = bestfit_pars[0][1]
+    P0 = bestfit_pars[0][2]
 
     C_SOL = SolveSoluteODE(time_fit, *bestfit_pars[0])
 
@@ -165,12 +166,12 @@ def Model_Fit():
 def Extrapolate(t):
 
     inject = np.genfromtxt('output.csv', delimiter = ',', skip_header= 1, missing_values= 0, usecols = 4)
-    inject = inject[-2]
+    inject = inject[-1]
         
     prediction = np.arange(time_fit[-1],t, dt)
     
-    stakeholder = [0,1,2,4]
-    amount = ['no injection', 'same amount', 'double the rate', 'CEL proposed']
+    stakeholder = [0.5,1,2,4]
+    amount = ['half injection', 'same amount', 'double the rate', 'CEL proposed']
     colours = ['r','b','y','k']
 
     global extrapolation
@@ -189,7 +190,7 @@ def Extrapolate(t):
         global extraPressure
         extraPressure = SolvePressureODE(prediction, *pars)
         ax.plot(np.append(time_fit, prediction), np.append(P_SOL,extraPressure), colours[i], label = 'Prediction' + ' for ' + amount[i])
-        pars = [d,M0]
+        pars = [d,M0, P0]
         extraSolute = SolveSoluteODE(prediction, *pars)
         ax2.plot(np.append(time_fit, prediction), np.append(C_SOL,extraSolute), colours[i], label = 'Prediction' + ' for ' + amount[i])
 
@@ -234,7 +235,7 @@ def SolveSoluteODE(t, *pars):
         ys[k+1] = improved_euler_step(SoluteModel, t[k], ys[k], dt, pars)
     return ys
 
-def SoluteModel(t, conc, d, M0):
+def SoluteModel(t, conc, d, M0, P0):
     if extrapolation is False:
         qCO2 = np.interp(t, time, injec)
         pressure = np.interp(t, time_fit, P_SOL)
@@ -248,12 +249,12 @@ def SoluteModel(t, conc, d, M0):
     else:
         C1 = C[0]
         C2 = 0
-        
-    qloss = (b/a)*(pressure - P[0])*C2*t
 
-    qCO2 -= qloss
+    #qloss = ((b/a)*(pressure - P0)*C2)
 
-    return (1 - conc)*(qCO2 / M0) - (b/(a * M0))*(pressure - P[0])*(C1 - conc) - d*(conc - C[0])
+    #qCO2 -= qloss
+
+    return (((1 - conc)*qCO2)/ M0) - (b/(a * M0))*(pressure - P0)*(C1 - conc) - d*(conc - C[0])
 
 def PressureModel(t, Pk, a, b, c):
     if extrapolation is False:
@@ -262,6 +263,16 @@ def PressureModel(t, Pk, a, b, c):
     else:
         dqdti = 0
         q = net
+
+    if (Pk - P[0] > 0):
+        C_1 = np.interp(t,time,C)
+    else:
+        C_1 = 0
+    
+   # qloss = (b/a)*Pk*t*C_1
+
+    #q -= qloss
+
     return -a*q - b*(Pk-P[0]) - c*dqdti
 
 def improved_euler_step(f, tk, yk, h, pars):
