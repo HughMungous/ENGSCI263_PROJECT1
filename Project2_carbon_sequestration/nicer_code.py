@@ -83,7 +83,7 @@ def BenchMark():
     b = 2
     d = 3
     M0 = 1
-    ys, analytical = SoluteBenchmark(cc[0], injec, a, b, d, M0, pp[0], time, dt)
+    ys, analytical = SoluteBenchmark(cc[0], injec, a, b, d, M0, time, dt)
     steady_state = ((injec/M0) + d*cc[0])/((injec/M0) + d)
     f, ax = plt.subplots(1, 1)
     ax.plot(time,analytical, 'b', label = 'Analtyical')
@@ -94,7 +94,7 @@ def BenchMark():
     plt.show()
     dt = 1.1
     time = np.arange(0,10, dt)
-    ys, analytical = SoluteBenchmark(cc[0], injec, a, b, d, M0, pp[0], time, dt)
+    ys, analytical = SoluteBenchmark(cc[0], injec, a, b, d, M0, time, dt)
     f, ax = plt.subplots(1, 1)
     ax.plot(time,analytical, 'b', label = 'Analtyical')
     ax.plot(time,ys, 'kx', label = 'Numerical')
@@ -104,7 +104,7 @@ def BenchMark():
     plt.show()
     return
 
-def SoluteBenchmark(C0, qCO2, a, b, d, M0, P0, time, dt):
+def SoluteBenchmark(C0, qCO2, a, b, d, M0, time, dt):
     analytical = []
     for i in range(len(time)):
         k = qCO2/M0
@@ -115,7 +115,7 @@ def SoluteBenchmark(C0, qCO2, a, b, d, M0, P0, time, dt):
     ts = time[0]+np.arange(nt+1)*dt
     ys = ts*0.
     ys[0] = cc[0]
-    pars = [d,M0,P0]
+    pars = [d,M0]
     for i in range(nt):
         ys[i+1] = improved_euler_step(SoluteModel, ts[i], ys[i], dt, pars)
     return ys, analytical
@@ -193,14 +193,13 @@ def Model_Fit():
     ax.set_title("Pressure flow in the Ohaaki geothermal field.")
     plt.show()
 
-    pars = [0.01,1000, pp[0]]
+    pars = [0.01,1000]
     global solutecov
-    bestfit_pars, solutecov = curve_fit(SolveSoluteODE, tcc, cc, pars, bounds = (0, [100,100000000,10]))
+    bestfit_pars, solutecov = curve_fit(SolveSoluteODE, tcc, cc, pars, bounds = (0, [100,100000000]))
 
-    global d, M0, C_SOL, P0
+    global d, M0, C_SOL
     d = bestfit_pars[0]
     M0 = bestfit_pars[1]
-    P0 = bestfit_pars[2]
 
 
     C_SOL = SolveSoluteODE(time_fit, *bestfit_pars)
@@ -240,7 +239,7 @@ def Extrapolate(t):
         global extraPressure
         extraPressure = SolvePressureODE(prediction, *pars)
         ax.plot(np.append(time_fit, prediction), np.append(P_SOL,extraPressure), colours[i], label = 'Prediction' + ' for ' + amount[i])
-        pars = [d, M0, P0]
+        pars = [d, M0]
         extraSolute = SolveSoluteODE(prediction, *pars)
         ax2.plot(np.append(time_fit, prediction), np.append(C_SOL,extraSolute), colours[i], label = 'Prediction' + ' for ' + amount[i])
 
@@ -292,7 +291,7 @@ def SolveSoluteODE(t, *pars):
         return ys
     return np.interp(t, tcc, ys)
 
-def SoluteModel(t, conc, d, M0, P0):
+def SoluteModel(t, conc, d, M0):
     if extrapolation is False:
         qCO2 = np.interp(t, tq, qc)
         pressure = np.interp(t, time_fit, P_SOL)
@@ -310,7 +309,7 @@ def SoluteModel(t, conc, d, M0, P0):
     #qloss = ((b/a)*(pressure - P0)*C2)
 
     #qCO2 -= qloss
-
+    P0 = 6.17
     return (((1 - conc)*qCO2)/ M0) - (b/(a * M0))*(pressure - P0)*(C1 - conc) - d*(conc - cc[0])
 
 def PressureModel(t, Pk, a, b, c):
@@ -435,37 +434,90 @@ def MSPE_A():
 	return best_A,best_B,best_C
 
 def Uncertainty():
-    global a,b,c,d,M0,P0
-    global net
+    global a,b,c,d,M0
+    global net, injec
     net = np.append(q[0:33],(q[33::]-qc[33::]))
     pressure_pars = [a,b,c]
-    solute_pars = [d,M0,P0]
-    pressures = []
-    concs = []
+    solute_pars = [d,M0]
+    pressures0 = []
+    pressures1 = []
+    pressures2 = []
+    pressures3 = []
+    psol = []
+    concs0 = []
+    concs1 = []
+    concs2 = []
+    concs3 = []
+    csol = []
     p_pars = np.random.multivariate_normal(pressure_pars, pressurecov, 100)
     flows = [0.5,1,2,4]
     c_pars = np.random.multivariate_normal(solute_pars, solutecov, 100)
-    i = 0
     global prediction
     global P_SOL
+    ogPSOL = P_SOL
     prediction = np.arange(tp[-1],2050, 0.1)
     for pprams in p_pars:
         a = pprams[0]
         b = pprams[1]
         c = pprams[2]
-        for flow in flows:
-            global extrapolation
-            extrapolation = False
-            net = np.append(q[0:33],(q[33::]-qc[33::]))
-            P_SOL = SolvePressureODE(time_fit, *[a,b,c])
-            global extraploation
-            extrapolation = True
-            net = q[-1] - flow*qc[-1]
-            press = SolvePressureODE(prediction, *[a,b,c])
-            pressures.append(np.append(P_SOL,press))
+        global extrapolation
+        extrapolation = False
+        net = np.append(q[0:33],(q[33::]-qc[33::]))
+        P_SOL = SolvePressureODE(time_fit, *[a,b,c])
+        psol.append(P_SOL)
+        global extraploation
+        extrapolation = True
+        net = q[-1] - flows[0]*qc[-1]
+        press = SolvePressureODE(prediction, *[a,b,c])
+        pressures0.append(press)
+        net = q[-1] - flows[1]*qc[-1]
+        press = SolvePressureODE(prediction, *[a,b,c])
+        pressures1.append(press)
+        net = q[-1] - flows[2]*qc[-1]
+        press = SolvePressureODE(prediction, *[a,b,c])
+        pressures2.append(press)
+        net = q[-1] - flows[3]*qc[-1]
+        press = SolvePressureODE(prediction, *[a,b,c])
+        pressures3.append(press)
+
+    a, b, c = pressure_pars
+    P_SOL = ogPSOL
+    for ccprams in c_pars:
+        d = ccprams[0]
+        M0 = ccprams[1]
+        extrapolation = False
+        C_SOL = SolveSoluteODE(time_fit, *[d,M0])
+        csol.append(C_SOL)
+        extrapolation = True
+        injec = flows[0]*qc[-1]
+        solu = SolveSoluteODE(prediction, *[d,M0])
+        concs0.append(solu)
+        injec = flows[1]*qc[-1]
+        solu = SolveSoluteODE(prediction, *[d,M0])
+        concs1.append(solu)
+        injec = flows[2]*qc[-1]
+        solu = SolveSoluteODE(prediction, *[d,M0])
+        concs2.append(solu)
+        injec = flows[3]*qc[-1]
+        solu = SolveSoluteODE(prediction, *[d,M0])
+        concs3.append(solu)
+
     f, ax  = plt.subplots(1,1)
-    for presssss in pressures:
-        ax.plot(np.append(time_fit, prediction), presssss, alpha = 0.2, lw = 0.5)
+    for i in range(len(pressures0)):
+        ax.plot(time_fit, psol[i], color = 'k', alpha = 0.2, lw = 0.5)
+        ax.plot(prediction, pressures0[i], color = 'r', alpha = 0.2, lw = 0.4)
+        ax.plot(prediction, pressures1[i], color = 'b', alpha = 0.2, lw = 0.4)
+        ax.plot(prediction, pressures2[i], color = 'g', alpha = 0.2, lw = 0.4)
+        ax.plot(prediction, pressures3[i], color = 'y', alpha = 0.2, lw = 0.4)
+    plt.show()
+    f, ax  = plt.subplots(1,1)
+    for i in range(len(concs0)):
+        ax.plot(time_fit, csol[i], color = 'k', alpha = 0.2, lw = 0.5)
+        ax.plot(prediction, concs0[i], color = 'r', alpha = 0.2, lw = 0.4)
+        ax.plot(prediction, concs1[i], color = 'b', alpha = 0.2, lw = 0.4)
+        ax.plot(prediction, concs2[i], color = 'g', alpha = 0.2, lw = 0.4)
+        ax.plot(prediction, concs3[i], color = 'y', alpha = 0.2, lw = 0.4)
+
     plt.show()
     return
 
