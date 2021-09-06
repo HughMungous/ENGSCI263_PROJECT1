@@ -40,7 +40,7 @@ class Helper:
 	
 	"""
 	@staticmethod
-	def improved_euler_step(self, f, tk: float, yk: float, h: float, x0: float, pars)->float:
+	def improved_euler_step(self, f, tk: float, yk: float, h: float, pars: List[float])->float:
 		""" Compute a single Improved Euler step.
 		
 			Parameters
@@ -61,8 +61,8 @@ class Helper:
 			yk1 : float
 				Solution at end of the Improved Euler step.
 		"""
-		f0 = f(tk, yk, *pars, x0)
-		f1 = f(tk + h, yk + h*f0, *pars,x0)
+		f0 = f(tk, yk, *pars)
+		f1 = f(tk + h, yk + h*f0, *pars)
 		yk1 = yk + h*0.5*(f0 + f1)
 
 		return yk1
@@ -113,13 +113,14 @@ class PressureModel:
 		add other functions
 
 	"""
-	def __init__(self, pars = [1,1,1,1]):
+	def __init__(self, pars = [1,1,1]):
 		self.time = []			# data for time
 		self.pressure = []		# data for pressure
 		self.net = []			# net sink rate 
 		self.analytical = []	# analytical solution for pressure
-		self.pars = pars		# variable parameters, default = 1,1,1,1: [pressure, ]
+		self.pars = pars		# variable parameters, default = 1,1,1
 		self.dt = 0.5			# time-step
+		self.basePressure = 0
 
 		self.extrapolatedSolution = []
 		return
@@ -154,6 +155,8 @@ class PressureModel:
 		self.pressure[0] = self.pressure[1] # there is only one missing value
 		self.pars[-1] = self.pressure[0]
 
+		self.basePressure = self.pressure[0]
+
 		prod = vals[:, 2]
 		injec = vals[:,4]
 
@@ -167,40 +170,35 @@ class PressureModel:
 
 		return 
 
-	def model(self, t: float, P: float, q: float, dqdt: float, a: float, b: float, c: float, P0: float)->float:
+	def model(self, t: float, P: float, q: float, dqdt: float, a: float, b: float, c: float)->float:
 		"""Returns the first derivative of pressure with respect to time
 		"""
-		dPdt = -a*q - b*(P-P0) - c*dqdt
+		dPdt = -a*q - b*(P-self.basePressure) - c*dqdt
 		return dPdt
 
-	def solve(self, t: List[float], a: float, b: float, c: float, y0: float = 6.17)->List[float]:
+	def solve(self, t: List[float], a: float, b: float, c: float)->List[float]:
 		""" Solves ode ...
 		
 		"""
-		## checking that the lengths for data match
 		nt = len(t)
-		if nt != len(self.net):
-			raise ValueError("If the original time data is not used then the net sink must be interpolated to fit")
-
 		result = 0.*t	# creating output array 
-		result[0] = y0	# setting the initial value
+		result[0] = self.basePressure	# setting the initial value
 
-		params = [0, a, b, c, 0]
+		params = [0, 0, a, b, c]
 
 		for k in range(1, nt):
 			# setting the value for q sink and dqdt
-			params[0] = self.net[k]									# net sink rate, q
-			params[-1] = (self.net[k] - self.net[k-1]) / self.dt	# change in sink rate, dqdt
+			params[0] = self.net[k]								# net sink rate, q
+			params[1] = (self.net[k] - self.net[k-1]) / self.dt	# change in sink rate, dqdt
 			
-			result[k] = Helper.improved_euler_step(self, self.model, t[k], result[k-1], self.dt, y0, params)
+			result[k] = Helper.improved_euler_step(self, self.model, t[k], result[k-1], self.dt, params)
 
 		return result
 
-	def optimise(self, ignorePressure: bool = False)->None:
+	def optimise(self)->None:
 		"""Function which uses curve_fit() to optimise the paramaters for the ode
 		"""
-		self.pars[:4-ignorePressure] = curve_fit(self.solve, self.time, self.pressure, self.pars[:4-ignorePressure])[0]
-		
+		self.pars = curve_fit(self.solve, self.time, self.pressure, self.pars)[0]
 		return  
 
 	def interpolate(self, dtNew: float)->None:
@@ -221,7 +219,13 @@ class PressureModel:
 		self.dt = dtNew
 		return
 	
-	def extrapolate(self, proposedRates: List[float]):
+	def extrapolate(self, endPoint: float, proposedRates: List[float]):
+		"""	
+		This function creates projections for each of the provided rates from the endpoint
+		of the analytical solution to the declared endpoint for the projection.
+		
+		"""
+
 		pass
 
 	def plot(self, c1: str = 'r', c2: str = 'b')->None:
@@ -238,7 +242,7 @@ class PressureModel:
 		
 		return
 
-	def run(self, optimiseArgs: List[bool] = [False], plotArgs: List[str] = ['r','b'])->None:
+	def run(self, plotArgs: List[str] = ['r','b'])->None:
 		"""This function runs everything and produces a plot of the analytical solution
 
 		TODO: 
@@ -248,7 +252,7 @@ class PressureModel:
 		"""
 		self.getPressureData()
 		self.interpolate(0.1)
-		self.optimise(*optimiseArgs)
+		self.optimise()
 		self.analytical = self.solve(self.time, *self.pars)
 		self.plot(*plotArgs)
 
@@ -272,6 +276,10 @@ class SoluteModel:
 		self.pressure = []
 		self.qC02 = []
 		self.CO2_conc = []
+		self.basePressure = 6.17
+		self.baseConcentration = 0.03
+		self.baseMass = 1 # need to change this
+		self.dt = 0.5
 
 	def getConcentrationData(self)->None:
 		'''	Reads all relevant data from output.csv file
@@ -319,16 +327,16 @@ class SoluteModel:
 		
 		return 
 
-	def model(self, t: float, C: float, qC02: float, P: float, a: float, b: float, d: float, M0: float, P0: float = 6.17, C0: float = 0.03)->float:
+	def model(self, t: float, C: float, qC02: float, P: float, a: float, b: float, d: float)->float:
 		''' Return the Solute derivative dC/dt at time, t, for given parameters.
 			Parameters:
 			-----------
 			t : float
 				Independent variable.
 			C : float
-				Dependent variable.
+				Dependent variable. (Current C02 concentration)
 			qCO2 : float
-				Source/sink rate.
+				Source/sink rate. (injection rate of CO2)
 			a : float
 				Source/sink strength parameter.
 			b : float
@@ -337,32 +345,22 @@ class SoluteModel:
 				Recharge strength parameter
 			P : float
 				Pressure at time point t
-			P0 : float
-				Ambient value of Pressure within the system.
-			M0 : float
-				Ambient value of Mass of the system
-			C0 : float
-				Ambient value of the dependent variable.
+			
 			Returns:
 			--------
 			dCdt : float
 				Derivative of Pressure variable with respect to independent variable.
 		'''
-		if (P > P0):
-			C_1 = C
-			# see what happens
-			C_2 = C
-		else:
-			C_1 = C0
-			C_2 = 0
+		qLoss, cPrime = 0, self.baseConcentration
 
-		qLoss = (b/a)*(P-P0)*C_2*t # calculating CO2 loss to groundwater
+		if (P > self.basePressure):
+			cPrime = C
+			# the loss due to a higher than baseline pressure during the space between  injection periods
+			qLoss = (b / a) * (P - self.basePressure) * cPrime * self.dt	
+		
+		qC02 -= qLoss
 
-		qC02 = qC02 - qLoss # qCO2 after the loss
-
-		dCdt = (1 - C) * (qC02 / M0) - (b / (a*M0)) * (P - P0) * (C_1 - C) - d * (C - C0) # calculates the derivative
-
-		return dCdt
+		return (1 - C) * (qC02 / self.baseMass) - (b / (a * self.baseMass)) * (P - self.basePressure) * (cPrime - C) - d * (C - self.baseConcentration)
 
 	def solve(self, t: List[float])->List[float]:
 		pass
