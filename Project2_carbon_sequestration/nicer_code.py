@@ -504,21 +504,31 @@ def Uncertainty():
 
     f, ax  = plt.subplots(1,1)
     for i in range(len(pressures0)):
-        ax.plot(time_fit, psol[i], color = 'k', alpha = 0.2, lw = 0.5)
-        ax.plot(prediction, pressures0[i], color = 'r', alpha = 0.2, lw = 0.4)
-        ax.plot(prediction, pressures1[i], color = 'b', alpha = 0.2, lw = 0.4)
-        ax.plot(prediction, pressures2[i], color = 'g', alpha = 0.2, lw = 0.4)
-        ax.plot(prediction, pressures3[i], color = 'y', alpha = 0.2, lw = 0.4)
+        ax.plot(time_fit, psol[i], color = 'k', alpha = 0.1, lw = 0.5)
+        ax.plot(prediction, pressures0[i], color = 'r', alpha = 0.1, lw = 0.4)
+        ax.plot(prediction, pressures1[i], color = 'b', alpha = 0.1, lw = 0.4)
+        ax.plot(prediction, pressures2[i], color = 'g', alpha = 0.1, lw = 0.4)
+        ax.plot(prediction, pressures3[i], color = 'y', alpha = 0.1, lw = 0.4)
+    ax.plot(tp, pp, 'r.')
     plt.show()
     f, ax  = plt.subplots(1,1)
     for i in range(len(concs0)):
-        ax.plot(time_fit, csol[i], color = 'k', alpha = 0.2, lw = 0.5)
-        ax.plot(prediction, concs0[i], color = 'r', alpha = 0.2, lw = 0.4)
-        ax.plot(prediction, concs1[i], color = 'b', alpha = 0.2, lw = 0.4)
-        ax.plot(prediction, concs2[i], color = 'g', alpha = 0.2, lw = 0.4)
-        ax.plot(prediction, concs3[i], color = 'y', alpha = 0.2, lw = 0.4)
-
+        ax.plot(time_fit, csol[i], color = 'k', alpha = 0.1, lw = 0.5)
+        ax.plot(prediction, concs0[i], color = 'r', alpha = 0.1, lw = 0.4)
+        ax.plot(prediction, concs1[i], color = 'b', alpha = 0.1, lw = 0.4)
+        ax.plot(prediction, concs2[i], color = 'g', alpha = 0.1, lw = 0.4)
+        ax.plot(prediction, concs3[i], color = 'y', alpha = 0.1, lw = 0.4)
+    ax.plot(tcc, cc, 'r.')
     plt.show()
+    barp = []
+    barc = []
+    for i in range(len(concs0)):
+        barp.append(pressures3[i][-1])
+        barc.append(concs3[i][-1])
+    
+    plt.hist(barc, bins = 'auto')
+    plt.show()
+
     return
 
 if __name__ == "__main__":
