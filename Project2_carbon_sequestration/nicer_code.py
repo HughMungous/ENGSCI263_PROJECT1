@@ -188,7 +188,7 @@ def Model_Fit():
     f, ax = plt.subplots(1, 1)
     ax.plot(time_fit,P_SOL, 'b', label = 'ODE')
     ax.plot(tp,pp, 'r.', label = 'DATA')
-    plt.axvline(2002, color = 'black', linestyle = '--', label = 'Calibration point')
+    plt.axvline(tp[34], color = 'black', linestyle = '--', label = 'Calibration point')
     ax.legend()
     ax.set_title("Pressure flow in the Ohaaki geothermal field.")
     plt.show()
@@ -207,7 +207,7 @@ def Model_Fit():
     f, ax = plt.subplots(1, 1)
     ax.plot(time_fit,C_SOL, 'b', label = 'ODE')
     ax.plot(tcc,cc, 'r.', label = 'DATA')
-    plt.axvline(2002, color = 'black', linestyle = '--', label = 'Calibration point')
+    plt.axvline(tp[34], color = 'black', linestyle = '--', label = 'Calibration point')
     ax.legend()
     ax.set_title("CO2 concentration in the Ohaaki geothermal field.")
     plt.show()
@@ -449,9 +449,9 @@ def Uncertainty():
     concs2 = []
     concs3 = []
     csol = []
-    p_pars = np.random.multivariate_normal(pressure_pars, pressurecov, 100)
+    p_pars = np.random.multivariate_normal(pressure_pars, pressurecov, 95)
     flows = [0.5,1,2,4]
-    c_pars = np.random.multivariate_normal(solute_pars, solutecov, 100)
+    c_pars = np.random.multivariate_normal(solute_pars, solutecov, 95)
     global prediction
     global P_SOL
     ogPSOL = P_SOL
@@ -526,7 +526,12 @@ def Uncertainty():
         barp.append(pressures3[i][-1])
         barc.append(concs3[i][-1])
     
+    five = np.percentile(barc,2.5)
+    ninefive = np.percentile(barc,97.5)
+
     plt.hist(barc, bins = 'auto')
+    plt.axvline(five , color = 'r', linestyle = '--')
+    plt.axvline(ninefive , color = 'r', linestyle = '--')
     plt.show()
 
     return
