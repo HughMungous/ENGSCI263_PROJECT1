@@ -1,34 +1,43 @@
+## data handling
+from glob import glob
 
-import ntpath
-
+## numpy and math
 import numpy as np
 from numpy.core.numeric import NaN
 from numpy.lib.function_base import interp
 
-from matplotlib import pyplot as plt
+import statistics
+import itertools
 
 from scipy.interpolate import interp1d
 from scipy.optimize import curve_fit
 
-import itertools
-import statistics
+## plotting
+from matplotlib import pyplot as plt
+
+## type handling
 from typing import List
-
-"""
-Do you think we should generate a base class containing the basic ode? 
-	probably unnescessary from my pov.
-
-"""
 
 class Helper:
 	"""Class containing helper functions 
-	
-	TODO:
 
-	- Euler step - semi done? could include a bool for sebs code
-	- OPTIONAL: 
-		pressure ode
-		solute ode?
+	Methods:
+		COMPLETE
+			improved_euler_step(...)
+				DESCRIPTION HERE
+
+		TODO: INCOMPLETE
+			benchmark - compares analytical solution vs data
+
+			grid_search
+
+			construct_samples
+
+			model_ensemble
+
+			!!!assosciated error functions^
+		
+	
 	"""
 	@staticmethod
 	def improved_euler_step(self, f, tk: float, yk: float, h: float, x0: float, pars)->float:
@@ -64,7 +73,11 @@ class PressureModel:
 		Data :
 			...
 
-		Functions :
+		Methods :
+			IMPLEMENTED/COMPLETE
+			run :
+				runs everything ...
+
 			getPresureData : 
 				None -> None
 				reads in the data from output.csv adding it to the class data
@@ -72,6 +85,26 @@ class PressureModel:
 			model : 
 				float -> float
 				returns the first derivative of pressure with respect to time
+
+			solve :
+				...
+
+			optimise :
+				...
+
+			plot :
+				...
+			
+			TODO/INCOMPLETE 
+			!!! add docstrings
+
+			interpolate :
+				interpolates the data for the new timestep
+
+			extrapolate : 
+				extrapolates the data
+
+
 	TODO:
 
 		add other functions
