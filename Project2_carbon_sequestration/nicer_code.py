@@ -21,6 +21,7 @@ qc = np.append(np.zeros(33), qc)
 
 P_SOL = []
 extrapolation = False
+other_extrapolation = False
 a = 0
 b = 0
 c = 0
@@ -40,7 +41,11 @@ def main():
     PlotMisfit()
 
     BenchMark()
+
+    Uncertainty()
     return
+
+
 
 def BenchMark():
     dt = 0.1
@@ -52,8 +57,6 @@ def BenchMark():
     c = 0
     q0 = 4
     ys, analytical = PressureBenchmark(pp[0], a, b, c, q0, time, dt)
-    global P_SOL
-    P_SOL = ys
     steady_state = pp[0] - (a*q0)/b
     f, ax = plt.subplots(1, 1)
     ax.plot(time,analytical, 'b', label = 'Analtyical')
@@ -170,16 +173,17 @@ def PlotMisfit():
     
 def Model_Fit():
     pars = [0.00187,0.153,0.00265]
-    bestfit_pars = curve_fit(SolvePressureODE, tp, pp, pars)
+    global pressurecov
+    bestfit_pars, pressurecov = curve_fit(SolvePressureODE, tp, pp, pars)
     
     global a, b, c, time_fit, P_SOL
-    a = bestfit_pars[0][0]
-    b = bestfit_pars[0][1]
-    c = bestfit_pars[0][2]
+    a = bestfit_pars[0]
+    b = bestfit_pars[1]
+    c = bestfit_pars[2]
 
     time_fit = np.arange(tp[0], tp[-1], dt)
     
-    P_SOL = SolvePressureODE(time_fit, *bestfit_pars[0])
+    P_SOL = SolvePressureODE(time_fit, *bestfit_pars)
     
     f, ax = plt.subplots(1, 1)
     ax.plot(time_fit,P_SOL, 'b', label = 'ODE')
@@ -190,16 +194,16 @@ def Model_Fit():
     plt.show()
 
     pars = [0.01,1000, pp[0]]
-
-    bestfit_pars = curve_fit(SolveSoluteODE, tcc, cc, pars, bounds = (0, [100000,100000000,10]))
+    global solutecov
+    bestfit_pars, solutecov = curve_fit(SolveSoluteODE, tcc, cc, pars, bounds = (0, [100,100000000,10]))
 
     global d, M0, C_SOL, P0
-    d = bestfit_pars[0][0]
-    M0 = bestfit_pars[0][1]
-    P0 = bestfit_pars[0][2]
+    d = bestfit_pars[0]
+    M0 = bestfit_pars[1]
+    P0 = bestfit_pars[2]
 
 
-    C_SOL = SolveSoluteODE(time_fit, *bestfit_pars[0])
+    C_SOL = SolveSoluteODE(time_fit, *bestfit_pars)
 
     f, ax = plt.subplots(1, 1)
     ax.plot(time_fit,C_SOL, 'b', label = 'ODE')
@@ -261,19 +265,18 @@ def Extrapolate(t):
     return
 
 def SolvePressureODE(t, *pars):
-    if extrapolation is False:
+    if (extrapolation is False):
         ys = 0.*tp
         ys[0] = pp[0]
         for k in range(len(tp)- 1):
             ys[k+1] = improved_euler_step(PressureModel, tp[k], ys[k], tp[k+1] - tp[k], pars)
+        return np.interp(t, tp, ys)
     if extrapolation is True:
         ys = 0.*prediction
         ys[0] = P_SOL[-1]
         for k in range(len(prediction)- 1):
             ys[k+1] = improved_euler_step(PressureModel, prediction[k], ys[k], prediction[k+1] - prediction[k], pars)
         return ys
-    return np.interp(t, tp, ys)
-
 def SolveSoluteODE(t, *pars):
     global k
     if extrapolation is False:
@@ -311,7 +314,7 @@ def SoluteModel(t, conc, d, M0, P0):
     return (((1 - conc)*qCO2)/ M0) - (b/(a * M0))*(pressure - P0)*(C1 - conc) - d*(conc - cc[0])
 
 def PressureModel(t, Pk, a, b, c):
-    if extrapolation is False:
+    if (extrapolation is False):
         q = np.interp(t, tq, net)
         dqdti = np.interp(t, tq, dqdt)
     else:
@@ -430,6 +433,41 @@ def MSPE_A():
 		
 
 	return best_A,best_B,best_C
+
+def Uncertainty():
+    global a,b,c,d,M0,P0
+    global net
+    net = np.append(q[0:33],(q[33::]-qc[33::]))
+    pressure_pars = [a,b,c]
+    solute_pars = [d,M0,P0]
+    pressures = []
+    concs = []
+    p_pars = np.random.multivariate_normal(pressure_pars, pressurecov, 100)
+    flows = [0.5,1,2,4]
+    c_pars = np.random.multivariate_normal(solute_pars, solutecov, 100)
+    i = 0
+    global prediction
+    global P_SOL
+    prediction = np.arange(tp[-1],2050, 0.1)
+    for pprams in p_pars:
+        a = pprams[0]
+        b = pprams[1]
+        c = pprams[2]
+        for flow in flows:
+            global extrapolation
+            extrapolation = False
+            net = np.append(q[0:33],(q[33::]-qc[33::]))
+            P_SOL = SolvePressureODE(time_fit, *[a,b,c])
+            global extraploation
+            extrapolation = True
+            net = q[-1] - flow*qc[-1]
+            press = SolvePressureODE(prediction, *[a,b,c])
+            pressures.append(np.append(P_SOL,press))
+    f, ax  = plt.subplots(1,1)
+    for presssss in pressures:
+        ax.plot(np.append(time_fit, prediction), presssss, alpha = 0.2, lw = 0.5)
+    plt.show()
+    return
 
 if __name__ == "__main__":
 	 main()
