@@ -89,6 +89,10 @@ class PressureModel:
 			solve :
 				...
 
+			interpolate :
+				interpolates the data for the new timestep
+				the analytical solution must be recomputed 
+
 			optimise :
 				...
 
@@ -98,8 +102,7 @@ class PressureModel:
 			TODO/INCOMPLETE 
 			!!! add docstrings
 
-			interpolate :
-				interpolates the data for the new timestep
+			
 
 			extrapolate : 
 				extrapolates the data
@@ -111,12 +114,15 @@ class PressureModel:
 
 	"""
 	def __init__(self, pars = [1,1,1,1]):
-		self.time = []
-		self.pressure = []
-		self.analytical = []
-		self.net = []
-		self.pars = pars
-		self.dt = 0.5
+		self.time = []			# data for time
+		self.pressure = []		# data for pressure
+		self.net = []			# net sink rate 
+		self.analytical = []	# analytical solution for pressure
+		self.pars = pars		# variable parameters, default = 1,1,1,1: [pressure, ]
+		self.dt = 0.5			# time-step
+
+		self.extrapolatedSolution = []
+		return
 
 	def getPressureData(self)->None:
 		'''
@@ -146,8 +152,7 @@ class PressureModel:
 		self.time = vals[:,1]
 		self.pressure = vals[:,3]
 		self.pressure[0] = self.pressure[1] # there is only one missing value
-		self.pars[0] = self.pressure[0]
-		self.net = []
+		self.pars[-1] = self.pressure[0]
 
 		prod = vals[:, 2]
 		injec = vals[:,4]
@@ -184,8 +189,8 @@ class PressureModel:
 
 		for k in range(1, nt):
 			# setting the value for q sink and dqdt
-			params[0] = self.net[k]
-			params[-1] = (self.net[k] - self.net[k-1]) / self.dt
+			params[0] = self.net[k]									# net sink rate, q
+			params[-1] = (self.net[k] - self.net[k-1]) / self.dt	# change in sink rate, dqdt
 			
 			result[k] = Helper.improved_euler_step(self, self.model, t[k], result[k-1], self.dt, y0, params)
 
@@ -194,13 +199,31 @@ class PressureModel:
 	def optimise(self, ignorePressure: bool = False)->None:
 		"""Function which uses curve_fit() to optimise the paramaters for the ode
 		"""
-		self.pars = curve_fit(self.solve, self.time, self.pressure, self.pars[:4-ignorePressure])[0]
+		self.pars[:4-ignorePressure] = curve_fit(self.solve, self.time, self.pressure, self.pars[:4-ignorePressure])[0]
 		
 		return  
 
-	def interpolate(self):
-		pass
+	def interpolate(self, dtNew: float)->None:
+		"""This function reformats the data if we wish to change the timestep
+		
+		...
+
+		"""
+		# creating a temporary timespace defined by the new dt
+		temp = np.arange(self.time[0], self.time[-1] + dtNew, dtNew)
+
+		# interpolating the data
+		self.pressure = interp(temp, self.time, self.pressure)
+		self.net = interp(temp, self.time, self.net)
+
+		# updating the timespace and timestep
+		self.time = temp
+		self.dt = dtNew
+		return
 	
+	def extrapolate(self, proposedRates: List[float]):
+		pass
+
 	def plot(self, c1: str = 'r', c2: str = 'b')->None:
 		f, ax = plt.subplots(1,1)
 
@@ -224,6 +247,7 @@ class PressureModel:
 		
 		"""
 		self.getPressureData()
+		self.interpolate(0.1)
 		self.optimise(*optimiseArgs)
 		self.analytical = self.solve(self.time, *self.pars)
 		self.plot(*plotArgs)
