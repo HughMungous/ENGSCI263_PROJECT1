@@ -1,5 +1,5 @@
 import numpy as np
-from numpy.core.numeric import NaN, _move_axis_to_0
+from numpy.core.numeric import NaN
 from matplotlib import pyplot as plt
 from numpy.lib.function_base import interp
 from scipy.interpolate import interp1d
@@ -7,15 +7,18 @@ import itertools
 from scipy.optimize import curve_fit
 import statistics
 
-time, prod, P, injec, C = np.genfromtxt('output.csv', delimiter = ',', skip_header= 1, missing_values= 0, usecols = [1,2,3,4,5]).T
-injec[np.isnan(injec)] = 0
-C[np.isnan(C)] = 0.03 # natural state
-P[0] = P[1] # there is only one missing value
-net = prod - injec
+tp, pp = np.genfromtxt('data/cs_p.txt', delimiter = ',', skip_header=1).T
+tqc, qc = np.genfromtxt('data/cs_c.txt', delimiter = ',', skip_header=1).T
+tq, q = np.genfromtxt('data/cs_q.txt', delimiter = ',', skip_header=1).T
+tcc, cc = np.genfromtxt('data/cs_cc.txt', delimiter = ',', skip_header=1).T
+
+net = np.append(q[0:33],(q[33::]-qc))
 dqdt = net*0.
-dqdt[0] = (net[1] - net[0])/(time[1] - time[0])
-dqdt[-1] = (net[-1] - net[-2])/(time[-1] - time[-2])
-dqdt[1:-1] = (net[2:] - net[:-2])/(time[2:] - net[:-2])
+dqdt[0] = (net[1] - net[0])/(tq[1] - tq[0])
+dqdt[-1] = (net[-1] - net[-2])/(tq[-1] - tq[-2])
+dqdt[1:-1] = (net[2:] - net[:-2])/(tq[2:] - tq[:-2])
+qc = np.append(np.zeros(33), qc)
+
 P_SOL = []
 extrapolation = False
 a = 0
@@ -25,7 +28,7 @@ d = 0
 M0 = 0
 extraPressure = []
 k = 0
-dt = 0.5
+dt = 0.1
 C_SOL = []
 
 def main():
@@ -40,7 +43,7 @@ def main():
     return
 
 def BenchMark():
-    dt = 0.25
+    dt = 0.1
     time = np.arange(0, 10, dt)
     global net
     net = 4
@@ -48,8 +51,10 @@ def BenchMark():
     b = 2
     c = 0
     q0 = 4
-    ys, analytical = PressureBenchmark(P[0], a, b, c, q0, time, dt)
-    steady_state = P[0] - (a*q0)/b
+    ys, analytical = PressureBenchmark(pp[0], a, b, c, q0, time, dt)
+    global P_SOL
+    P_SOL = ys
+    steady_state = pp[0] - (a*q0)/b
     f, ax = plt.subplots(1, 1)
     ax.plot(time,analytical, 'b', label = 'Analtyical')
     ax.plot(time, ys, 'kx', label = 'Numerical')
@@ -59,7 +64,7 @@ def BenchMark():
     plt.show()
     dt = 1.1
     time = np.arange(0,10, dt)
-    ys, analytical = PressureBenchmark(P[0], 1, 2, 0, 4, time, dt)
+    ys, analytical = PressureBenchmark(pp[0], 1, 2, 0, 4, time, dt)
     f, ax = plt.subplots(1, 1)
     ax.plot(time,analytical, 'b', label = 'Analtyical')
     ax.plot(time,ys, 'kx', label = 'Numerical')
@@ -75,8 +80,8 @@ def BenchMark():
     b = 2
     d = 3
     M0 = 1
-    ys, analytical = SoluteBenchmark(C[0], injec, a, b, d, M0, P[0], time, dt)
-    steady_state = ((injec/M0) + d*C[0])/((injec/M0) + d)
+    ys, analytical = SoluteBenchmark(cc[0], injec, a, b, d, M0, pp[0], time, dt)
+    steady_state = ((injec/M0) + d*cc[0])/((injec/M0) + d)
     f, ax = plt.subplots(1, 1)
     ax.plot(time,analytical, 'b', label = 'Analtyical')
     ax.plot(time, ys, 'kx', label = 'Numerical')
@@ -84,9 +89,9 @@ def BenchMark():
     ax.legend()
     ax.set_title("Analytcial vs Numerical Solution Benchmark for Solute ODE")
     plt.show()
-    dt = 0.9
+    dt = 1.1
     time = np.arange(0,10, dt)
-    ys, analytical = SoluteBenchmark(C[0], injec, a, b, d, M0, P[0], time, dt)
+    ys, analytical = SoluteBenchmark(cc[0], injec, a, b, d, M0, pp[0], time, dt)
     f, ax = plt.subplots(1, 1)
     ax.plot(time,analytical, 'b', label = 'Analtyical')
     ax.plot(time,ys, 'kx', label = 'Numerical')
@@ -106,7 +111,7 @@ def SoluteBenchmark(C0, qCO2, a, b, d, M0, P0, time, dt):
     nt = int(np.ceil((time[-1]-time[0])/dt))
     ts = time[0]+np.arange(nt+1)*dt
     ys = ts*0.
-    ys[0] = C[0]
+    ys[0] = cc[0]
     pars = [d,M0,P0]
     for i in range(nt):
         ys[i+1] = improved_euler_step(SoluteModel, ts[i], ys[i], dt, pars)
@@ -165,40 +170,41 @@ def PlotMisfit():
     
 def Model_Fit():
     pars = [0.00187,0.153,0.00265]
-    bestfit_pars = curve_fit(SolvePressureODE, time[0:92], P[0:92], pars, bounds = (0, [1,1,1]))
+    bestfit_pars = curve_fit(SolvePressureODE, tp, pp, pars)
     
     global a, b, c, time_fit, P_SOL
     a = bestfit_pars[0][0]
     b = bestfit_pars[0][1]
     c = bestfit_pars[0][2]
 
-    time_fit = np.arange(time[0], time[-1], dt)
+    time_fit = np.arange(tp[0], tp[-1], dt)
     
     P_SOL = SolvePressureODE(time_fit, *bestfit_pars[0])
     
     f, ax = plt.subplots(1, 1)
     ax.plot(time_fit,P_SOL, 'b', label = 'ODE')
-    ax.plot(time,P, 'r', label = 'DATA')
-    plt.axvline(time[91], color = 'black', linestyle = '--', label = 'Calibration point')
+    ax.plot(tp,pp, 'r.', label = 'DATA')
+    plt.axvline(2002, color = 'black', linestyle = '--', label = 'Calibration point')
     ax.legend()
     ax.set_title("Pressure flow in the Ohaaki geothermal field.")
     plt.show()
 
-    pars = [0.001,8012346, 6.17]
+    pars = [0.01,1000, pp[0]]
 
-    bestfit_pars = curve_fit(SolveSoluteODE, time[0:92], C[0:92], pars, bounds = ([0,0,5], [10,10000000,10]))
+    bestfit_pars = curve_fit(SolveSoluteODE, tcc, cc, pars, bounds = (0, [100000,100000000,10]))
 
     global d, M0, C_SOL, P0
     d = bestfit_pars[0][0]
     M0 = bestfit_pars[0][1]
     P0 = bestfit_pars[0][2]
 
+
     C_SOL = SolveSoluteODE(time_fit, *bestfit_pars[0])
 
     f, ax = plt.subplots(1, 1)
     ax.plot(time_fit,C_SOL, 'b', label = 'ODE')
-    ax.plot(time,C, 'r', label = 'DATA')
-    plt.axvline(time[91], color = 'black', linestyle = '--', label = 'Calibration point')
+    ax.plot(tcc,cc, 'r.', label = 'DATA')
+    plt.axvline(2002, color = 'black', linestyle = '--', label = 'Calibration point')
     ax.legend()
     ax.set_title("CO2 concentration in the Ohaaki geothermal field.")
     plt.show()
@@ -206,10 +212,9 @@ def Model_Fit():
 
 def Extrapolate(t):
 
-    inject = np.genfromtxt('output.csv', delimiter = ',', skip_header= 1, missing_values= 0, usecols = 4)
-    inject = inject[-1]
-        
-    prediction = np.arange(time_fit[-1],t, dt)
+    inject = qc[-1]
+    global prediction
+    prediction = np.arange(tp[-1],t, dt)
     
     stakeholder = [0.5,1,2,4]
     amount = ['half injection', 'same amount', 'double the rate', 'CEL proposed']
@@ -223,7 +228,7 @@ def Extrapolate(t):
 
     for i in range(len(stakeholder)):
         global net
-        net = prod[-1] - stakeholder[i]*inject
+        net = q[-1] - stakeholder[i]*inject
        # net = statistics.mean(net)
         global injec
         injec = inject*stakeholder[i]
@@ -231,12 +236,12 @@ def Extrapolate(t):
         global extraPressure
         extraPressure = SolvePressureODE(prediction, *pars)
         ax.plot(np.append(time_fit, prediction), np.append(P_SOL,extraPressure), colours[i], label = 'Prediction' + ' for ' + amount[i])
-        pars = [d,M0, P0]
+        pars = [d, M0, P0]
         extraSolute = SolveSoluteODE(prediction, *pars)
         ax2.plot(np.append(time_fit, prediction), np.append(C_SOL,extraSolute), colours[i], label = 'Prediction' + ' for ' + amount[i])
 
-    ax.axvline(time[91], color = 'black', linestyle = '--', label = 'Calibration point')
-    ax2.axvline(time[91], color = 'black', linestyle = '--', label = 'Calibration point')
+    ax.axvline(2002, color = 'black', linestyle = '--', label = 'Calibration point')
+    ax2.axvline(2002, color = 'black', linestyle = '--', label = 'Calibration point')
     ax2.axhline(.1, color = 'cyan', linestyle = '--', label = 'Corrosive Point')
 
     ax.legend()
@@ -256,57 +261,65 @@ def Extrapolate(t):
     return
 
 def SolvePressureODE(t, *pars):
-    ys = 0.*t
     if extrapolation is False:
-        ys[0] = P[0]
-    else:
+        ys = 0.*tp
+        ys[0] = pp[0]
+        for k in range(len(tp)- 1):
+            ys[k+1] = improved_euler_step(PressureModel, tp[k], ys[k], tp[k+1] - tp[k], pars)
+    if extrapolation is True:
+        ys = 0.*prediction
         ys[0] = P_SOL[-1]
-    for k in range(len(t)- 1):
-        ys[k+1] = improved_euler_step(PressureModel, t[k], ys[k], dt, pars)
-    return ys
+        for k in range(len(prediction)- 1):
+            ys[k+1] = improved_euler_step(PressureModel, prediction[k], ys[k], prediction[k+1] - prediction[k], pars)
+        return ys
+    return np.interp(t, tp, ys)
 
 def SolveSoluteODE(t, *pars):
-    ys = 0.*t
-    if extrapolation is False:
-        ys[0] = C[0]
-    else:
-        ys[0] = C_SOL[-1]
     global k
-    for k in range(len(t)- 1):
-        ys[k+1] = improved_euler_step(SoluteModel, t[k], ys[k], dt, pars)
-    return ys
+    if extrapolation is False:
+        ys = 0.*tcc
+        ys[0] = cc[0]
+        for k in range(len(tcc)- 1):
+            ys[k+1] = improved_euler_step(SoluteModel, tcc[k], ys[k], tcc[k+1] - tcc[k], pars)
+    else:
+        ys = 0.*prediction
+        ys[0] = C_SOL[-1]
+        for k in range(len(prediction)- 1):
+            ys[k+1] = improved_euler_step(SoluteModel, prediction[k], ys[k], prediction[k+1] - prediction[k], pars)
+        return ys
+    return np.interp(t, tcc, ys)
 
 def SoluteModel(t, conc, d, M0, P0):
     if extrapolation is False:
-        qCO2 = np.interp(t, time, injec)
+        qCO2 = np.interp(t, tq, qc)
         pressure = np.interp(t, time_fit, P_SOL)
     else:
         qCO2 = injec
         pressure = extraPressure[k]
     
-    if (pressure > P[0]):
+    if (pressure > pp[0]):
         C1 = conc
         C2 = conc
     else:
-        C1 = C[0]
+        C1 = cc[0]
         C2 = 0
 
     #qloss = ((b/a)*(pressure - P0)*C2)
 
     #qCO2 -= qloss
 
-    return (((1 - conc)*qCO2)/ M0) - (b/(a * M0))*(pressure - P0)*(C1 - conc) - d*(conc - C[0])
+    return (((1 - conc)*qCO2)/ M0) - (b/(a * M0))*(pressure - P0)*(C1 - conc) - d*(conc - cc[0])
 
 def PressureModel(t, Pk, a, b, c):
     if extrapolation is False:
-        q = np.interp(t, time, net)
-        dqdti = np.interp(t, time, dqdt)
+        q = np.interp(t, tq, net)
+        dqdti = np.interp(t, tq, dqdt)
     else:
         dqdti = 0
         q = net
 
-    if (Pk - P[0] > 0):
-        C_1 = np.interp(t,time,C)
+    if (Pk - pp[0] > 0):
+        C_1 = np.interp(t,tcc,cc)
     else:
         C_1 = 0
     
@@ -314,7 +327,7 @@ def PressureModel(t, Pk, a, b, c):
 
     #q -= qloss
 
-    return -a*q - b*(Pk-P[0]) - c*dqdti
+    return -a*q - b*(Pk-pp[0]) - c*dqdti
 
 def improved_euler_step(f, tk, yk, h, pars):
 	""" Compute a single Improved Euler step.
