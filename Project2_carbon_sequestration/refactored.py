@@ -98,31 +98,37 @@ class PressureModel:
 
 			plot :
 				...
-			
-			TODO/INCOMPLETE 
-			!!! add docstrings
-
-			
 
 			extrapolate : 
 				extrapolates the data
-
+			
+			TODO/INCOMPLETE 
+			!!! add docstrings !!!
 
 	TODO:
 
-		add other functions
+		add other functions - ensemble
 
 	"""
 	def __init__(self, pars = [1,1,1]):
 		self.time = []			# data for time
 		self.pressure = []		# data for pressure
 		self.net = []			# net sink rate 
+		self.dqdt = []
 		self.analytical = []	# analytical solution for pressure
 		self.pars = pars		# variable parameters, default = 1,1,1
 		self.dt = 0.5			# time-step
 		self.basePressure = 0
 
-		self.extrapolatedSolution = []
+		self.finalProduction = 0
+		self.finalInjection = 0
+		self.extrapolatedTimespace = []
+		self.extrapolatedSolutions = []
+
+		## TODO: current method uses interpolated data as the original values and thus plots that
+		# self.originalTime = []
+		# self.originalPressure = []
+		self.run()
 		return
 
 	def getPressureData(self)->None:
@@ -160,14 +166,28 @@ class PressureModel:
 		prod = vals[:, 2]
 		injec = vals[:,4]
 
+		self.finalProduction = prod[-1]
+		self.finalInjection = injec[-1]
+		# print(statistics.mean(prod[71:]/injec[71:]),statistics.variance(prod[71:]/injec[71:]))
+		# print(statistics.mean(prod[71:]-injec[71:]),statistics.variance(prod[71:]-injec[71:]))
+		
 		# cleans data
 		# for CO2 injection if no data is present then a rate of 0 is given for Pressure 
 		# it is given the most recent value
 		injec[np.isnan(injec)] = 0
 		
+
 		for i in range(len(prod)):
 			self.net.append(prod[i] - injec[i]) # getting net amount 
+		
+		self.net = np.array(self.net)
 
+		self.dqdt = 0.* self.net
+		self.dqdt[1:-1] = (self.net[2:]-self.net[:-2]) / self.dt # central differences
+		self.dqdt[0] = (self.net[1]-self.net[0]) / self.dt       # forward difference
+		self.dqdt[-1] = (self.net[-1]-self.net[-2]) / self.dt    # backward difference
+
+		
 		return 
 
 	def model(self, t: float, P: float, q: float, dqdt: float, a: float, b: float, c: float)->float:
@@ -176,7 +196,7 @@ class PressureModel:
 		dPdt = -a*q - b*(P-self.basePressure) - c*dqdt
 		return dPdt
 
-	def solve(self, t: List[float], a: float, b: float, c: float)->List[float]:
+	def solve(self, t: List[float], a: float, b: float, c: float, extrapolate = None)->List[float]:
 		""" Solves ode ...
 		
 		"""
@@ -186,12 +206,22 @@ class PressureModel:
 
 		params = [0, 0, a, b, c]
 
-		for k in range(1, nt):
+		if extrapolate != None:
+			# assuming that the production stays constant - need to verify
+			params[0] = self.finalProduction - extrapolate*self.finalInjection
+			result[0] = self.analytical[-1]
+
+			for k in range(nt-1):				
+				result[k+1] = Helper.improved_euler_step(self, self.model, t[k], result[k], self.dt, params)
+			
+			return result
+
+		for k in range(nt-1):
 			# setting the value for q sink and dqdt
 			params[0] = self.net[k]								# net sink rate, q
-			params[1] = (self.net[k] - self.net[k-1]) / self.dt	# change in sink rate, dqdt
+			params[1] = self.dqdt[k]
 			
-			result[k] = Helper.improved_euler_step(self, self.model, t[k], result[k-1], self.dt, params)
+			result[k+1] = Helper.improved_euler_step(self, self.model, t[k], result[k], self.dt, params)
 
 		return result
 
@@ -213,6 +243,7 @@ class PressureModel:
 		# interpolating the data
 		self.pressure = interp(temp, self.time, self.pressure)
 		self.net = interp(temp, self.time, self.net)
+		self.dqdt = interp(temp, self.time, self.dqdt)
 
 		# updating the timespace and timestep
 		self.time = temp
@@ -225,24 +256,28 @@ class PressureModel:
 		of the analytical solution to the declared endpoint for the projection.
 		
 		"""
+		self.extrapolatedTimespace = np.arange(self.time[-1],endPoint + self.dt, self.dt)
+		for rate in proposedRates:
+			self.extrapolatedSolutions.append(self.solve(self.extrapolatedTimespace, *self.pars, extrapolate=rate))
+		
+		return
 
-		pass
-
-	def plot(self, c1: str = 'r', c2: str = 'b')->None:
+	def plot(self, c1: str = 'r.', c2: str = 'b', extraColours = ["b","c","m","y","k"], extraLabels = ["0","24","48","96","192"])->None:
 		f, ax = plt.subplots(1,1)
 
 		ax.plot(self.time,self.pressure, c1, label = "Measurements")
 		ax.plot(self.time,self.analytical, c2, label = "Analyitical Solution")
 
+		for i in range(len(self.extrapolatedSolutions)):
+			ax.plot(self.extrapolatedTimespace, self.extrapolatedSolutions[i], extraColours[i], label = extraLabels[i])
+
 		ax.legend()
-
 		ax.set_title("Pressure in the Ohaaki geothermal field.")
-
 		plt.show()
 		
 		return
 
-	def run(self, plotArgs: List[str] = ['r','b'])->None:
+	def run(self, plotArgs: List[str] = [])->None:
 		"""This function runs everything and produces a plot of the analytical solution
 
 		TODO: 
@@ -254,6 +289,7 @@ class PressureModel:
 		self.interpolate(0.1)
 		self.optimise()
 		self.analytical = self.solve(self.time, *self.pars)
+		self.extrapolate(2050, [0, 0.5, 1, 2, 4])
 		self.plot(*plotArgs)
 
 		return
@@ -380,26 +416,7 @@ class SoluteModel:
 ## ---------------------------------------------------------
 ## ---------------------------------------------------------
 
-def main():
-
-	## 	TEST 1
-	model1 = PressureModel()
-
-	# model1.getPressureData()
-	# solution1 = model1.solve(model1.time, *model1.pars)
-	# # print(model1.pars)
-	# model1.optimise()
-	# # print(model1.pars)
-	# solution2 = model1.solve(model1.time, *model1.pars)
-
-	# model1.plot()
-	# # print(model1.pressure[:10]) 
-	# # print(solution1[:10])
-	# # print(solution2[:10])
-
-	model1.run()
-
-	pass
 
 if __name__ == "__main__":
-	main()
+	PressureModel()
+	pass
