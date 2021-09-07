@@ -202,6 +202,7 @@ class PressureModel:
 		self.analytical = []	# analytical solution for pressure
 
 		self.pars 		= pars	# variable parameters, default = 1,1,1
+		self.cov		= [] 	# parameter covariance
 		self.dt 		= 0.5	# time-step
 		self.basePressure = 0	# P0
 
@@ -335,7 +336,7 @@ class PressureModel:
 	def optimise(self)->None:
 		"""Function which uses curve_fit() to optimise the paramaters for the ode
 		"""
-		self.pars = curve_fit(self.solve, self.time, self.pressure, self.pars)[0]
+		self.pars, self.cov = curve_fit(self.solve, self.time, self.pressure, self.pars)
 		return  
 
 	def interpolate(self, dtNew: float)->None:
@@ -411,14 +412,15 @@ class SoluteModel:
 	
 		- ...
 	"""
-	def __init__(self, pars = [1, 1, 0.228646653]):
+	def __init__(self, pars = [1, 1, 0.228646653, 9900.495]):
 		self.time 		= []	# timespace
 		self.pressure 	= []	# pressure
 		self.qCO2 		= []	# CO2 injection rate
 		self.CO2_conc 	= []	# CO2 concentration
 		self.analytical = []
 		
-		self.pars = pars
+		self.pars 	= pars
+		self.cov 	= []
 
 		self.extrapolatedPressure 	= []
 		self.extrapolatedTimespace 	= []
@@ -468,7 +470,7 @@ class SoluteModel:
 		# 	if np.NaN in ar: raise("deez nuts")
 		return 
 
-	def model(self, t: float, C: float, qCO2: float, P: float, a: float, b: float, d: float)->float:
+	def model(self, t: float, C: float, qCO2: float, P: float, a: float, b: float, d: float, M0: float = 9900.495)->float:
 		''' Return the Solute derivative dC/dt at time, t, for given parameters.
 			Parameters:
 			-----------
@@ -501,9 +503,10 @@ class SoluteModel:
 		
 		qCO2 -= qLoss
 
-		return ((1 - C) * (qCO2 / self.baseMass)) - ((b / (a * self.baseMass)) * (P - self.basePressure) * (cPrime - C)) - (d * (C - self.baseConcentration))
+		# return ((1 - C) * (qCO2 / self.baseMass)) - ((b / (a * self.baseMass)) * (P - self.basePressure) * (cPrime - C)) - (d * (C - self.baseConcentration))
+		return ((1 - C) * (qCO2 / M0)) - ((b / (a * M0)) * (P - self.basePressure) * (cPrime - C)) - (d * (C - self.baseConcentration))
 
-	def solve(self, t: List[float], a: float, b: float, d: float, extrapolate = None)->List[float]:
+	def solve(self, t: List[float], a: float, b: float, d: float, M0: float = 9900.495, extrapolate = None)->List[float]:
 		nt = len(t)
 		result = 0.*t
 		result[0] = self.baseConcentration
@@ -534,7 +537,7 @@ class SoluteModel:
 		pass
 	
 	def optimise(self)->None:
-		self.pars = curve_fit(self.solve, self.time, self.CO2_conc, self.pars)[0]
+		self.pars[:-1], self.cov = curve_fit(self.solve, self.time, self.CO2_conc, self.pars[:-1], method="lm")
 		return  
 
 	def interpolate(self, dtNew: float)->None:
@@ -611,7 +614,10 @@ if __name__ == "__main__":
 		soluteModel.pars[1] = pressureModel.pars[1] # copying the value for b
 		soluteModel.extrapolatedPressure = pressureModel.extrapolatedSolutions.copy() # this needs to be reworked
 		
+
 		soluteModel.run()
+		print(soluteModel.cov)
+		print(soluteModel.pars)
 		# print(soluteModel.pars)
 	
 	
