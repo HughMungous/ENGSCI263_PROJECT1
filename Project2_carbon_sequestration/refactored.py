@@ -321,7 +321,6 @@ class SoluteModel:
 		self.baseConcentration = 0.03
 		self.baseMass = 9900.495 # need to change this
 		
-
 	def getConcentrationData(self)->None:
 		'''	Reads all relevant data from output.csv file
 
@@ -437,7 +436,7 @@ class SoluteModel:
 		self.pars = curve_fit(self.solve, self.time, self.CO2_conc, self.pars)[0]
 		return  
 
-	def interpolate(self, dtNew: float):
+	def interpolate(self, dtNew: float)->None:
 		# creating a temporary timespace defined by the new dt
 		temp = np.arange(self.time[0], self.time[-1] + dtNew, dtNew)
 
@@ -451,7 +450,7 @@ class SoluteModel:
 		self.dt = dtNew
 		return
 
-	def extrapolate(self, endPoint: float, proposedRates: List[float]):
+	def extrapolate(self, endPoint: float, proposedRates: List[float])->None:
 		"""	
 		This function creates projections for each of the provided rates from the endpoint
 		of the analytical solution to the declared endpoint for the projection.
@@ -479,6 +478,7 @@ class SoluteModel:
 		plt.show()
 		
 		return
+	
 	def run(self, plotArgs = [])->None:
 		self.getConcentrationData()
 		self.interpolate(0.1)
