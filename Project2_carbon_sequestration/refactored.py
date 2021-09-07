@@ -1,5 +1,6 @@
 ## data handling
 from glob import glob
+from os import sep as sysSep
 
 ## numpy and math
 import numpy as np
@@ -17,6 +18,13 @@ from matplotlib import pyplot as plt
 
 ## type handling
 from typing import List
+
+"""
+Notes:
+	Currently M0 is not being altered as a paramter for the solute model - it is hardcoded as ~9900
+		This means that the coefficients a and b used in SoluteModel() difer from the ones in 
+		PressureModel() - is this important?
+"""
 
 class Helper:
 	"""Class containing helper functions 
@@ -67,6 +75,82 @@ class Helper:
 
 		return yk1
 
+# class LumpedModel:
+# 	def __init__(self, sharedPars = [1, 1], pressurePars = [1], solutePars = [1,1,1]):
+# 		# raw data
+# 		self.time 		= []
+# 		self.pressure 	= []
+# 		self.production = []
+# 		self.injection 	= []
+# 		self.CO2_conc 	= []
+
+# 		self.dt 				= 0.5
+# 		self.basePressure 		= 6.1777
+# 		self.baseConcentration 	= 0.03
+# 		self.baseMass 			= 9900.495 # might need to change this to a parameter
+
+# 		# derived data 
+# 		self.net 	= [] # left in for now
+# 		self.dqdt 	= []
+
+# 		# model paramaters
+# 		self.sharedPars 	= sharedPars
+# 		self.pressurePars 	= pressurePars
+# 		self.solutePars 	= solutePars
+
+# 		# extrapolated data
+# 		self.extrapolatedTimespace 		= []
+# 		self.extrapolatedPressure 		= []
+# 		self.extrapolatedConcentration 	= []
+
+# 	def getMeasurementData(self, interpolated: bool = True)->None:
+# 		"""Reads in data from the interpolated csv
+# 		"""
+# 		if interpolated:
+# 			fileAddress = glob("output.csv")[0]
+# 			vals = np.genfromtxt(fileAddress)
+
+# 			## data extraction
+# 			self.time 		= vals[:,1]
+# 			self.production = vals[:,2]
+# 			self.pressure 	= vals[:,3]
+# 			self.injection 	= vals[:,4]
+# 			self.CO2_conc 	= vals[:,5]
+
+# 			## data cleaning
+# 			self.injection[np.isnan(self.injection)] = 0
+# 			self.CO2_conc[np.isnan(self.CO2_conc)] = 0.03
+
+# 			# first value missing
+# 			self.pressure[0] = self.pressure[1] 
+
+# 			self.basePressure = self.pressure[0]
+
+# 			# check if necessary
+# 			self.finalProduction 	= self.production[-1]
+# 			self.finalInjection 	= self.injection[-1]
+			
+
+# 			for i in range(len(prod)):
+# 				self.net.append(self.production[i] - self.injection[i]) # getting net amount 
+			
+# 			self.net = np.array(self.net)
+
+# 			self.dqdt 		= 0.* self.net
+# 			self.dqdt[1:-1] = (self.net[2:]-self.net[:-2]) / self.dt # central differences
+# 			self.dqdt[0] 	= (self.net[1]-self.net[0]) / self.dt    # forward difference
+# 			self.dqdt[-1] 	= (self.net[-1]-self.net[-2]) / self.dt  # backward difference
+
+			
+# 			return 
+
+# 		raise("currently this functionality is not implemented")
+# 		return
+
+# 	def pressureModel(self, ):
+# 		pass
+
+
 class PressureModel:
 	"""Class containing pressure model methods, instantiated using: newVar = PressureModel()
 
@@ -111,25 +195,27 @@ class PressureModel:
 
 	"""
 	def __init__(self, pars = [1,1,1]):
-		self.time = []			# data for time
-		self.pressure = []		# data for pressure
-		self.net = []			# net sink rate 
-		self.dqdt = []
+		self.time 		= []	# data for time
+		self.pressure 	= []	# data for pressure
+		self.net 		= []	# net sink rate 
+		self.dqdt 		= []
 		self.analytical = []	# analytical solution for pressure
-		self.pars = pars		# variable parameters, default = 1,1,1
-		self.dt = 0.5			# time-step
-		self.basePressure = 0
 
-		self.finalProduction = 0
-		self.finalInjection = 0
-		self.extrapolatedTimespace = []
-		self.extrapolatedSolutions = []
+		self.pars 		= pars	# variable parameters, default = 1,1,1
+		self.cov		= [] 	# parameter covariance
+		self.dt 		= 0.5	# time-step
+		self.basePressure = 0	# P0
+
+		self.finalProduction 		= 0
+		self.finalInjection 		= 0
+		self.extrapolatedTimespace 	= []
+		self.extrapolatedSolutions 	= []
 
 		return
 
 	def getPressureData(self)->None:
-		'''
-			Reads all relevant data from output.csv file
+		''' Reads all relevant data from output.csv file and adds them to the class
+			in order for the other methods to function correctly.
 			
 			Parameters : 
 			------------
@@ -138,63 +224,86 @@ class PressureModel:
 			Returns : 
 			---------
 			None (instantiates class data)
-
-			t : np.array
-				Time data that matches with other relevant quantities 
-
-			P : np.array
-				Relevant Pressure data in MPa
-
-			net : np.array
-				Overall net flow for the system in kg/s
 		'''
 		# reads the files' values
 		vals = np.genfromtxt('output.csv', delimiter = ',', skip_header= 1, missing_values= 0)
 
 		# extracts the relevant data
-		self.time = vals[:,1]
-		self.pressure = vals[:,3]
-		self.pressure[0] = self.pressure[1] # there is only one missing value
-		self.pars[-1] = self.pressure[0]
+		self.time 			= vals[:,1]
+		self.pressure 		= vals[:,3]
+		self.pressure[0] 	= self.pressure[1] # there is only one missing value
 
-		self.basePressure = self.pressure[0]
+		self.basePressure 	= self.pressure[0] # P0
 
-		prod = vals[:, 2]
-		injec = vals[:,4]
+		prod 	= vals[:,2]	
+		injec 	= vals[:,4]
 
-		self.finalProduction = prod[-1]
-		self.finalInjection = injec[-1]
-		# print(statistics.mean(prod[71:]/injec[71:]),statistics.variance(prod[71:]/injec[71:]))
-		# print(statistics.mean(prod[71:]-injec[71:]),statistics.variance(prod[71:]-injec[71:]))
+		# relecant for the extrapolation
+		self.finalProduction 	= prod[-1] 
+		self.finalInjection 	= injec[-1]
+
 		
-		# cleans data
+		## cleaning data
 		# for CO2 injection if no data is present then a rate of 0 is given for Pressure 
 		# it is given the most recent value
 		injec[np.isnan(injec)] = 0
 		
-
+		# calculating net flux
 		for i in range(len(prod)):
 			self.net.append(prod[i] - injec[i]) # getting net amount 
 		
+		# converting to numpy array
 		self.net = np.array(self.net)
 
-		self.dqdt = 0.* self.net
-		self.dqdt[1:-1] = (self.net[2:]-self.net[:-2]) / self.dt # central differences
-		self.dqdt[0] = (self.net[1]-self.net[0]) / self.dt       # forward difference
-		self.dqdt[-1] = (self.net[-1]-self.net[-2]) / self.dt    # backward difference
+		# calculating dqdt
+		self.dqdt 		= 0.* self.net
+		self.dqdt[1:-1] = (self.net[2:]-self.net[:-2]) / self.dt	# central differences
+		self.dqdt[0] 	= (self.net[1]-self.net[0]) / self.dt   	# forward difference
+		self.dqdt[-1] 	= (self.net[-1]-self.net[-2]) / self.dt		# backward difference
 
-		
 		return 
 
 	def model(self, t: float, P: float, q: float, dqdt: float, a: float, b: float, c: float)->float:
-		"""Returns the first derivative of pressure with respect to time
-		"""
-		dPdt = -a*q - b*(P-self.basePressure) - c*dqdt
-		return dPdt
+		"""Returns the first derivative of pressure with respect to time.
 
-	def solve(self, t: List[float], a: float, b: float, c: float, extrapolate = None)->List[float]:
-		""" Solves ode ...
-		
+			parameters: (all floats)
+			-----------
+			t : time, seconds
+
+			P : pressure, MPA
+
+			q : net sink rate, kg/s
+
+			dqdt : first derivative of net sink rate, kg/s^2
+			
+			a, b, c : arbitrary coefficient for each term 
+
+			returns:
+			--------
+			dPdt : first derivative of pressure with respect to time, MPA/s
+		"""
+		return -a*q - b*(P-self.basePressure) - c*dqdt
+
+	def solve(self, t: List[float], a: float, b: float, c: float, extrapolate: float = None)->List[float]:
+		"""	
+			Solves the pressure ODE using the improved euler method. This should not be used as
+			a static method due to requiring certain class data.
+
+			parameters: 
+			----------
+			t : time, seconds
+				time points at which to evaluate pressure
+
+			a, b, c : 
+				arbitrary coefficients for PressureModel.model()
+
+			extrapolate : 
+				an optional parameter, containing the proposed rate, for when extrapolation is intended
+
+			returns:
+			--------
+			analyticalPressure :
+				the analytical solution for the pressure ODE
 		"""
 		nt = len(t)
 		result = 0.*t	# creating output array 
@@ -221,29 +330,36 @@ class PressureModel:
 
 		return result
 
+	def benchmark(self, t: List[float], q0: float, a: float, b: float):
+		# need to check this
+		nt = len(t)
+		analyticalBenchmark, numericalBenchmark = 0.*t, self.solve(t, a, b, c)
+
+		for i in range(nt):
+			analyticalBenchmark[i] = self.basePressure + ((-a*q0)/b)*(1-np.exp(-b * t[i]))
+
+		return analyticalBenchmark, numericalBenchmark
+	
 	def optimise(self)->None:
 		"""Function which uses curve_fit() to optimise the paramaters for the ode
 		"""
-		self.pars = curve_fit(self.solve, self.time, self.pressure, self.pars)[0]
+		self.pars, self.cov = curve_fit(self.solve, self.time, self.pressure, self.pars)
 		return  
 
 	def interpolate(self, dtNew: float)->None:
-		"""This function reformats the data if we wish to change the timestep
-		
-		...
-
+		"""This interpolates all of the data at the same time if a different time step is desired from the given one
 		"""
 		# creating a temporary timespace defined by the new dt
 		temp = np.arange(self.time[0], self.time[-1] + dtNew, dtNew)
 
 		# interpolating the data
-		self.pressure = interp(temp, self.time, self.pressure)
-		self.net = interp(temp, self.time, self.net)
-		self.dqdt = interp(temp, self.time, self.dqdt)
+		self.pressure 	= interp(temp, self.time, self.pressure)
+		self.net 		= interp(temp, self.time, self.net)
+		self.dqdt 		= interp(temp, self.time, self.dqdt)
 
 		# updating the timespace and timestep
-		self.time = temp
-		self.dt = dtNew
+		self.time 	= temp
+		self.dt 	= dtNew
 		return
 	
 	def extrapolate(self, endPoint: float, proposedRates: List[float]):
@@ -303,46 +419,37 @@ class SoluteModel:
 	
 		- ...
 	"""
-	def __init__(self, pars = [1, 1, 0.228646653]):
-		self.time = []		# timespace
-		self.pressure = []	# pressure
-		self.qCO2 = []		# CO2 injection rate
-		self.CO2_conc = []	# CO2 concentration
+	def __init__(self, pars = [1, 1, 0.228646653, 9900.495]):
+		self.time 		= []	# timespace
+		self.pressure 	= []	# pressure
+		self.qCO2 		= []	# CO2 injection rate
+		self.CO2_conc 	= []	# CO2 concentration
 		self.analytical = []
-		self.pars = pars
+		
+		self.pars 	= pars
+		self.cov 	= []
 
-		self.extrapolatedPressure = []
-		self.extrapolatedTimespace = []
-		self.extrapolatedSolutions = []
-		self.extrapolationIndices = []
+		self.extrapolatedPressure 	= []
+		self.extrapolatedTimespace 	= []
+		self.extrapolatedSolutions 	= []
+		self.extrapolationIndices 	= []
 
-		self.dt = 0.5
-		self.basePressure = 6.1777
-		self.baseConcentration = 0.03
-		self.baseMass = 9900.495 # need to change this
+		self.dt 				= 0.5
+		self.basePressure 		= 6.1777
+		self.baseConcentration 	= 0.03
+		self.baseMass 			= 9900.495 	# hardcoded M0 # might need to change this to a parameter
 		
 	def getConcentrationData(self)->None:
-		'''	Reads all relevant data from output.csv file
-
+		''' Reads all relevant data from output.csv file and adds them to the class
+			in order for the other methods to function correctly.
+			
 			Parameters : 
 			------------
-				None
+			None
 
 			Returns : 
 			---------
-				None, modifies class data
-
-				t : np.array
-					Time data that matches with other relevant quantities 
-
-				P : np.array
-					Relevant Pressure data in MPa
-
-				injec : np.array
-					Relevant CO2 injection data in kg/s
-
-				CO2_conc : np.array
-					Relevant concentrations of CO2 in wt %
+			None (instantiates class data)
 
 			Notes :
 			------
@@ -353,14 +460,14 @@ class SoluteModel:
 		vals = np.genfromtxt('output.csv', delimiter = ',', skip_header= 1, missing_values= 0)
 		
 		## extracting the relevant data
-		self.time = vals[:,1] 		# time values
-		self.pressure = vals[:,3] 	# Pressure values
-		self.qCO2 = vals[:,4] 		# CO2 injection values 
-		self.CO2_conc = vals[:,5]	# CO2 concentration values
+		self.time 		= vals[:,1] # time values
+		self.pressure 	= vals[:,3] # Pressure values
+		self.qCO2 		= vals[:,4] # CO2 injection values 
+		self.CO2_conc 	= vals[:,5]	# CO2 concentration values
 		
 		## Cleaning the data
-		self.qCO2[np.isnan(self.qCO2)] = 0 				# absence of injection values is 0
-		self.CO2_conc[np.isnan(self.CO2_conc)] = 0.03 	# inputting natural state 
+		self.qCO2[np.isnan(self.qCO2)] 			= 0 	# absence of injection values is 0
+		self.CO2_conc[np.isnan(self.CO2_conc)] 	= 0.03 	# inputting natural state 
 
 		self.pressure[0] = self.pressure[1]			# missing initial pressure data point
 		
@@ -370,15 +477,15 @@ class SoluteModel:
 		# 	if np.NaN in ar: raise("deez nuts")
 		return 
 
-	def model(self, t: float, C: float, qCO2: float, P: float, a: float, b: float, d: float)->float:
+	def model(self, t: float, C: float, qCO2: float, P: float, a: float, b: float, d: float, M0: float = 9900.495)->float:
 		''' Return the Solute derivative dC/dt at time, t, for given parameters.
 			Parameters:
 			-----------
-			t : float
+			t : time, seconds
 				Independent variable.
-			C : float
+			C : CO2 concentration, weight %
 				Dependent variable. (Current CO2 concentration)
-			qCO2 : float
+			qCO2 : CO2 injection rate, kg/s
 				Source/sink rate. (injection rate of CO2)
 			a : float
 				Source/sink strength parameter.
@@ -403,9 +510,10 @@ class SoluteModel:
 		
 		qCO2 -= qLoss
 
-		return ((1 - C) * (qCO2 / self.baseMass)) - ((b / (a * self.baseMass)) * (P - self.basePressure) * (cPrime - C)) - (d * (C - self.baseConcentration))
+		# return ((1 - C) * (qCO2 / self.baseMass)) - ((b / (a * self.baseMass)) * (P - self.basePressure) * (cPrime - C)) - (d * (C - self.baseConcentration))
+		return ((1 - C) * (qCO2 / M0)) - ((b / (a * M0)) * (P - self.basePressure) * (cPrime - C)) - (d * (C - self.baseConcentration))
 
-	def solve(self, t: List[float], a: float, b: float, d: float, extrapolate = None)->List[float]:
+	def solve(self, t: List[float], a: float, b: float, d: float, M0: float = 9900.495, extrapolate = None)->List[float]:
 		nt = len(t)
 		result = 0.*t
 		result[0] = self.baseConcentration
@@ -432,8 +540,11 @@ class SoluteModel:
 
 		return result
 
+	def benchmark(self):
+		pass
+	
 	def optimise(self)->None:
-		self.pars = curve_fit(self.solve, self.time, self.CO2_conc, self.pars)[0]
+		self.pars[:-1], self.cov = curve_fit(self.solve, self.time, self.CO2_conc, self.pars[:-1], method="lm")
 		return  
 
 	def interpolate(self, dtNew: float)->None:
@@ -495,45 +606,26 @@ def main():
 	pass
 
 if __name__ == "__main__":
+	# t = LumpedModel()
+	# t.getMeasurementData()
 
+	
 	if input("Y/N? ") in "yY":
 		pressureModel = PressureModel()
 		pressureModel.run()
 		
+		# print(pressureModel.pars)
 		soluteModel = SoluteModel()
 
 		soluteModel.pars[0] = pressureModel.pars[0]	# copying the value for a
 		soluteModel.pars[1] = pressureModel.pars[1] # copying the value for b
 		soluteModel.extrapolatedPressure = pressureModel.extrapolatedSolutions.copy() # this needs to be reworked
 		
+
 		soluteModel.run()
-	else:
-		pressureModel = PressureModel()
-		pressureModel.getPressureData()
-		pressureModel.optimise()
-
-		# print(pressureModel.pars)
-		# raise("deez nuts")
-
-		soluteModel = SoluteModel()
-		
-		soluteModel.pars[0] = pressureModel.pars[0]	# copying the value for a
-		soluteModel.pars[1] = pressureModel.pars[1] # copying the value for b
-
-		
-
-		soluteModel.getConcentrationData()
-		
-		soluteModel.optimise()
-		soluteModel.analytical = soluteModel.solve(soluteModel.time,*soluteModel.pars)
-
-		f, ax = plt.subplots(1,1)
-
-		ax.plot(soluteModel.time, soluteModel.CO2_conc, "r.", label= "Measurements")
-		ax.plot(soluteModel.time, soluteModel.analytical, "b-", label= "Analytical")
-
-		ax.legend()
-		ax.set_title("CO2 weight percentage")
-		plt.show()
+		print(soluteModel.cov)
+		print(soluteModel.pars)
+		# print(soluteModel.pars)
+	
 	
 	pass
