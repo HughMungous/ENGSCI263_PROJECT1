@@ -330,8 +330,15 @@ class PressureModel:
 
 		return result
 
-	def benchmark(self):
-		pass
+	def benchmark(self, t: List[float], q0: float, a: float, b: float):
+		# need to check this
+		nt = len(t)
+		analyticalBenchmark, numericalBenchmark = 0.*t, self.solve(t, a, b, c)
+
+		for i in range(nt):
+			analyticalBenchmark[i] = self.basePressure + ((-a*q0)/b)*(1-np.exp(-b * t[i]))
+
+		return analyticalBenchmark, numericalBenchmark
 	
 	def optimise(self)->None:
 		"""Function which uses curve_fit() to optimise the paramaters for the ode
