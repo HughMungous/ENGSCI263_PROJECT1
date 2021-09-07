@@ -258,7 +258,7 @@ class PressureModel:
 		
 		return
 
-	def plot(self, c1: str = 'r.', c2: str = 'b', extraColours = ["b","c","m","y","k"], extraLabels = ["0","24","48","96","192"])->None:
+	def plot(self, c1: str = 'r.', c2: str = 'b', extraColours = ["c","m","b","y","k"], extraLabels = ["0","24","48","96","192"])->None:
 		f, ax = plt.subplots(1,1)
 
 		ax.plot(self.time,self.pressure, c1, label = "Measurements")
@@ -314,6 +314,7 @@ class SoluteModel:
 		self.extrapolatedPressure = []
 		self.extrapolatedTimespace = []
 		self.extrapolatedSolutions = []
+		self.extrapolationIndices = []
 
 		self.dt = 0.5
 		self.basePressure = 6.1777
@@ -396,7 +397,7 @@ class SoluteModel:
 		'''
 		qLoss, cPrime = 0, self.baseConcentration
 
-		if (P > self.basePressure):
+		if P > self.basePressure:
 			cPrime = C
 			# the loss due to a higher than baseline pressure during the space between  injection periods
 			qLoss = (b / a) * (P - self.basePressure) * cPrime * self.dt	
@@ -419,7 +420,7 @@ class SoluteModel:
 			result[0] = self.analytical[-1]
 
 			for k in range(nt-1):	
-				params[1] = self.extrapolatedPressure[[0, 0.5, 1, 2, 4].index(extrapolate)][k]			
+				params[1] = self.extrapolatedPressure[self.extrapolationIndices.index(extrapolate)][k]			
 				result[k+1] = Helper.improved_euler_step(self, self.model, t[k], result[k], self.dt, params)
 			
 			return result
@@ -456,6 +457,7 @@ class SoluteModel:
 		of the analytical solution to the declared endpoint for the projection.
 		
 		"""
+		self.extrapolationIndices = proposedRates
 		self.extrapolatedTimespace = np.arange(self.time[-1],endPoint + self.dt, self.dt)
 		
 		for rate in proposedRates:
@@ -463,7 +465,7 @@ class SoluteModel:
 		
 		return
 
-	def plot(self, c1: str = 'r.', c2: str = 'b', extraColours = ["b","c","m","y","k"], extraLabels = ["0","24","48","96","192"])->None:
+	def plot(self, c1: str = 'r.', c2: str = 'b', extraColours = ["c","m","b","y","k"], extraLabels = ["0","24","48","96","192"])->None:
 		f, ax = plt.subplots(1,1)
 
 		ax.plot(self.time,self.CO2_conc, c1, label = "Measurements")
@@ -489,11 +491,12 @@ class SoluteModel:
 ## ---------------------------------------------------------
 ## ---------------------------------------------------------
 ## ---------------------------------------------------------
-
+def main():
+	pass
 
 if __name__ == "__main__":
 
-	if 1:
+	if input("Y/N? ") in "yY":
 		pressureModel = PressureModel()
 		pressureModel.run()
 		
@@ -501,7 +504,7 @@ if __name__ == "__main__":
 
 		soluteModel.pars[0] = pressureModel.pars[0]	# copying the value for a
 		soluteModel.pars[1] = pressureModel.pars[1] # copying the value for b
-		soluteModel.extrapolatedPressure = pressureModel.extrapolatedSolutions.copy()
+		soluteModel.extrapolatedPressure = pressureModel.extrapolatedSolutions.copy() # this needs to be reworked
 		
 		soluteModel.run()
 	else:
