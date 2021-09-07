@@ -1,5 +1,6 @@
 ## data handling
 from glob import glob
+from os import sep as sysSep
 
 ## numpy and math
 import numpy as np
@@ -17,6 +18,13 @@ from matplotlib import pyplot as plt
 
 ## type handling
 from typing import List
+
+"""
+Notes:
+	Currently M0 is not being altered as a paramter for the solute model - it is hardcoded as ~9900
+		This means that the coefficients a and b used in SoluteModel() difer from the ones in 
+		PressureModel() - is this important?
+"""
 
 class Helper:
 	"""Class containing helper functions 
@@ -66,6 +74,82 @@ class Helper:
 		yk1 = yk + h*0.5*(f0 + f1)
 
 		return yk1
+
+# class LumpedModel:
+# 	def __init__(self, sharedPars = [1, 1], pressurePars = [1], solutePars = [1,1,1]):
+# 		# raw data
+# 		self.time 		= []
+# 		self.pressure 	= []
+# 		self.production = []
+# 		self.injection 	= []
+# 		self.CO2_conc 	= []
+
+# 		self.dt 				= 0.5
+# 		self.basePressure 		= 6.1777
+# 		self.baseConcentration 	= 0.03
+# 		self.baseMass 			= 9900.495 # might need to change this to a parameter
+
+# 		# derived data 
+# 		self.net 	= [] # left in for now
+# 		self.dqdt 	= []
+
+# 		# model paramaters
+# 		self.sharedPars 	= sharedPars
+# 		self.pressurePars 	= pressurePars
+# 		self.solutePars 	= solutePars
+
+# 		# extrapolated data
+# 		self.extrapolatedTimespace 		= []
+# 		self.extrapolatedPressure 		= []
+# 		self.extrapolatedConcentration 	= []
+
+# 	def getMeasurementData(self, interpolated: bool = True)->None:
+# 		"""Reads in data from the interpolated csv
+# 		"""
+# 		if interpolated:
+# 			fileAddress = glob("output.csv")[0]
+# 			vals = np.genfromtxt(fileAddress)
+
+# 			## data extraction
+# 			self.time 		= vals[:,1]
+# 			self.production = vals[:,2]
+# 			self.pressure 	= vals[:,3]
+# 			self.injection 	= vals[:,4]
+# 			self.CO2_conc 	= vals[:,5]
+
+# 			## data cleaning
+# 			self.injection[np.isnan(self.injection)] = 0
+# 			self.CO2_conc[np.isnan(self.CO2_conc)] = 0.03
+
+# 			# first value missing
+# 			self.pressure[0] = self.pressure[1] 
+
+# 			self.basePressure = self.pressure[0]
+
+# 			# check if necessary
+# 			self.finalProduction 	= self.production[-1]
+# 			self.finalInjection 	= self.injection[-1]
+			
+
+# 			for i in range(len(prod)):
+# 				self.net.append(self.production[i] - self.injection[i]) # getting net amount 
+			
+# 			self.net = np.array(self.net)
+
+# 			self.dqdt 		= 0.* self.net
+# 			self.dqdt[1:-1] = (self.net[2:]-self.net[:-2]) / self.dt # central differences
+# 			self.dqdt[0] 	= (self.net[1]-self.net[0]) / self.dt    # forward difference
+# 			self.dqdt[-1] 	= (self.net[-1]-self.net[-2]) / self.dt  # backward difference
+
+			
+# 			return 
+
+# 		raise("currently this functionality is not implemented")
+# 		return
+
+# 	def pressureModel(self, ):
+# 		pass
+
 
 class PressureModel:
 	"""Class containing pressure model methods, instantiated using: newVar = PressureModel()
@@ -319,7 +403,7 @@ class SoluteModel:
 		self.dt = 0.5
 		self.basePressure = 6.1777
 		self.baseConcentration = 0.03
-		self.baseMass = 9900.495 # need to change this
+		self.baseMass = 9900.495 # might need to change this to a parameter
 		
 	def getConcentrationData(self)->None:
 		'''	Reads all relevant data from output.csv file
@@ -495,11 +579,15 @@ def main():
 	pass
 
 if __name__ == "__main__":
+	t = LumpedModel()
+	t.getMeasurementData()
 
+	pass
 	if input("Y/N? ") in "yY":
 		pressureModel = PressureModel()
 		pressureModel.run()
 		
+		# print(pressureModel.pars)
 		soluteModel = SoluteModel()
 
 		soluteModel.pars[0] = pressureModel.pars[0]	# copying the value for a
@@ -507,6 +595,7 @@ if __name__ == "__main__":
 		soluteModel.extrapolatedPressure = pressureModel.extrapolatedSolutions.copy() # this needs to be reworked
 		
 		soluteModel.run()
+		# print(soluteModel.pars)
 	else:
 		pressureModel = PressureModel()
 		pressureModel.getPressureData()
