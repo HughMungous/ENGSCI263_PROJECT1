@@ -125,10 +125,6 @@ class PressureModel:
 		self.extrapolatedTimespace = []
 		self.extrapolatedSolutions = []
 
-		## TODO: current method uses interpolated data as the original values and thus plots that
-		# self.originalTime = []
-		# self.originalPressure = []
-		# self.run()
 		return
 
 	def getPressureData(self)->None:
@@ -315,8 +311,9 @@ class SoluteModel:
 		self.analytical = []
 		self.pars = pars
 
-		# self.a = 0
-		# self.b = 0
+		self.extrapolatedPressure = []
+		self.extrapolatedTimespace = []
+		self.extrapolatedSolutions = []
 
 		self.dt = 0.5
 		self.basePressure = 6.1777
@@ -412,9 +409,21 @@ class SoluteModel:
 		nt = len(t)
 		result = 0.*t
 		result[0] = self.baseConcentration
-		
-		# self.baseMass = M0
+
 		params = [0, 0, a, b, d]
+		
+		if extrapolate != None:
+			# assuming that the production stays constant - need to verify
+			params[0] = self.qCO2[-1]*extrapolate
+
+			result[0] = self.analytical[-1]
+
+			for k in range(nt-1):	
+				params[1] = self.extrapolatedPressure[[0, 0.5, 1, 2, 4].index(extrapolate)][k]			
+				result[k+1] = Helper.improved_euler_step(self, self.model, t[k], result[k], self.dt, params)
+			
+			return result
+
 
 		for k in range(nt-1):
 			params[0] = self.qCO2[k]
@@ -448,7 +457,7 @@ class SoluteModel:
 		
 		"""
 		self.extrapolatedTimespace = np.arange(self.time[-1],endPoint + self.dt, self.dt)
-
+		
 		for rate in proposedRates:
 			self.extrapolatedSolutions.append(self.solve(self.extrapolatedTimespace, *self.pars, extrapolate=rate))
 		
@@ -458,10 +467,10 @@ class SoluteModel:
 		f, ax = plt.subplots(1,1)
 
 		ax.plot(self.time,self.CO2_conc, c1, label = "Measurements")
-		ax.plot(self.time[:-20],self.analytical[:-20], c2, label = "Analyitical Solution")
+		ax.plot(self.time,self.analytical, c2, label = "Analyitical Solution")
 
-		# for i in range(len(self.extrapolatedSolutions)):
-		# 	ax.plot(self.extrapolatedTimespace, self.extrapolatedSolutions[i], extraColours[i], label = extraLabels[i])
+		for i in range(len(self.extrapolatedSolutions)):
+			ax.plot(self.extrapolatedTimespace, self.extrapolatedSolutions[i], extraColours[i], label = extraLabels[i])
 
 		ax.legend()
 		ax.set_title("Pressure in the Ohaaki geothermal field.")
@@ -483,33 +492,45 @@ class SoluteModel:
 
 
 if __name__ == "__main__":
-	pressureModel = PressureModel()
-	pressureModel.getPressureData()
-	pressureModel.optimise()
-
-	# print(pressureModel.pars)
-	# raise("deez nuts")
-
-	soluteModel = SoluteModel()
-	
-	soluteModel.pars[0] = pressureModel.pars[0]	# copying the value for a
-	soluteModel.pars[1] = pressureModel.pars[1] # copying the value for b
-
-	
-
-	soluteModel.getConcentrationData()
-	
-	soluteModel.optimise()
-	soluteModel.analytical = soluteModel.solve(soluteModel.time,*soluteModel.pars)
 
 	if 1:
-	# if input() == "plot":
+		pressureModel = PressureModel()
+		pressureModel.run()
+		
+		soluteModel = SoluteModel()
+
+		soluteModel.pars[0] = pressureModel.pars[0]	# copying the value for a
+		soluteModel.pars[1] = pressureModel.pars[1] # copying the value for b
+		soluteModel.extrapolatedPressure = pressureModel.extrapolatedSolutions.copy()
+		
+		soluteModel.run()
+	else:
+		pressureModel = PressureModel()
+		pressureModel.getPressureData()
+		pressureModel.optimise()
+
+		# print(pressureModel.pars)
+		# raise("deez nuts")
+
+		soluteModel = SoluteModel()
+		
+		soluteModel.pars[0] = pressureModel.pars[0]	# copying the value for a
+		soluteModel.pars[1] = pressureModel.pars[1] # copying the value for b
+
+		
+
+		soluteModel.getConcentrationData()
+		
+		soluteModel.optimise()
+		soluteModel.analytical = soluteModel.solve(soluteModel.time,*soluteModel.pars)
+
 		f, ax = plt.subplots(1,1)
 
-		ax.plot(soluteModel.time[:70], soluteModel.CO2_conc[:70], "r.", label= "Measurements")
-		ax.plot(soluteModel.time[:70], soluteModel.analytical[:70], "b-", label= "Analytical")
+		ax.plot(soluteModel.time, soluteModel.CO2_conc, "r.", label= "Measurements")
+		ax.plot(soluteModel.time, soluteModel.analytical, "b-", label= "Analytical")
 
 		ax.legend()
 		ax.set_title("CO2 weight percentage")
 		plt.show()
+	
 	pass
