@@ -128,7 +128,7 @@ class PressureModel:
 		## TODO: current method uses interpolated data as the original values and thus plots that
 		# self.originalTime = []
 		# self.originalPressure = []
-		self.run()
+		# self.run()
 		return
 
 	def getPressureData(self)->None:
@@ -307,15 +307,22 @@ class SoluteModel:
 	
 		- ...
 	"""
-	def __init__(self):
-		self.time = []
-		self.pressure = []
-		self.qC02 = []
-		self.CO2_conc = []
-		self.basePressure = 6.17
-		self.baseConcentration = 0.03
-		self.baseMass = 1 # need to change this
+	def __init__(self, pars = [1, 1, 0.228646653]):
+		self.time = []		# timespace
+		self.pressure = []	# pressure
+		self.qCO2 = []		# CO2 injection rate
+		self.CO2_conc = []	# CO2 concentration
+		self.analytical = []
+		self.pars = pars
+
+		# self.a = 0
+		# self.b = 0
+
 		self.dt = 0.5
+		self.basePressure = 6.1777
+		self.baseConcentration = 0.03
+		self.baseMass = 9900.495 # need to change this
+		
 
 	def getConcentrationData(self)->None:
 		'''	Reads all relevant data from output.csv file
@@ -345,7 +352,6 @@ class SoluteModel:
 				CO2 concentration before injection is assumed to be natural state
 				of 3 wt %. 
 		'''
-
 		# reads all the data from excel file
 		vals = np.genfromtxt('output.csv', delimiter = ',', skip_header= 1, missing_values= 0)
 		
@@ -356,21 +362,25 @@ class SoluteModel:
 		self.CO2_conc = vals[:,5]	# CO2 concentration values
 		
 		## Cleaning the data
-		self.qCO2[np.isnan(qCO2)] = 0 				# absence of injection values is 0
-		self.CO2_conc[np.isnan(CO2_conc)] = 0.03 	# inputting natural state 
+		self.qCO2[np.isnan(self.qCO2)] = 0 				# absence of injection values is 0
+		self.CO2_conc[np.isnan(self.CO2_conc)] = 0.03 	# inputting natural state 
 
 		self.pressure[0] = self.pressure[1]			# missing initial pressure data point
 		
+		self.basePressure = self.pressure[0]
+
+		# for ar in [self.time, self.pressure, self.qCO2, self.CO2_conc]:
+		# 	if np.NaN in ar: raise("deez nuts")
 		return 
 
-	def model(self, t: float, C: float, qC02: float, P: float, a: float, b: float, d: float)->float:
+	def model(self, t: float, C: float, qCO2: float, P: float, a: float, b: float, d: float)->float:
 		''' Return the Solute derivative dC/dt at time, t, for given parameters.
 			Parameters:
 			-----------
 			t : float
 				Independent variable.
 			C : float
-				Dependent variable. (Current C02 concentration)
+				Dependent variable. (Current CO2 concentration)
 			qCO2 : float
 				Source/sink rate. (injection rate of CO2)
 			a : float
@@ -394,29 +404,112 @@ class SoluteModel:
 			# the loss due to a higher than baseline pressure during the space between  injection periods
 			qLoss = (b / a) * (P - self.basePressure) * cPrime * self.dt	
 		
-		qC02 -= qLoss
+		qCO2 -= qLoss
 
-		return (1 - C) * (qC02 / self.baseMass) - (b / (a * self.baseMass)) * (P - self.basePressure) * (cPrime - C) - d * (C - self.baseConcentration)
+		return ((1 - C) * (qCO2 / self.baseMass)) - ((b / (a * self.baseMass)) * (P - self.basePressure) * (cPrime - C)) - (d * (C - self.baseConcentration))
 
-	def solve(self, t: List[float])->List[float]:
-		pass
+	def solve(self, t: List[float], a: float, b: float, d: float, extrapolate = None)->List[float]:
+		nt = len(t)
+		result = 0.*t
+		result[0] = self.baseConcentration
+		
+		# self.baseMass = M0
+		params = [0, 0, a, b, d]
+
+		for k in range(nt-1):
+			params[0] = self.qCO2[k]
+			params[1] = self.pressure[k]
+			result[k+1] = Helper.improved_euler_step(self, self.model, t[k], result[k], self.dt, params)
+
+		return result
 
 	def optimise(self)->None:
-		pass
+		self.pars = curve_fit(self.solve, self.time, self.CO2_conc, self.pars)[0]
+		return  
 
-	def interpolate(self):
-		pass
+	def interpolate(self, dtNew: float):
+		# creating a temporary timespace defined by the new dt
+		temp = np.arange(self.time[0], self.time[-1] + dtNew, dtNew)
 
-	def plot(self)->None:
-		pass
+		# interpolating the data
+		self.pressure = interp(temp, self.time, self.pressure)
+		self.qCO2 = interp(temp, self.time, self.qCO2)
+		self.CO2_conc = interp(temp, self.time, self.CO2_conc)
 
-	def run(self)->None:
-		pass
+		# updating the timespace and timestep
+		self.time = temp
+		self.dt = dtNew
+		return
+
+	def extrapolate(self, endPoint: float, proposedRates: List[float]):
+		"""	
+		This function creates projections for each of the provided rates from the endpoint
+		of the analytical solution to the declared endpoint for the projection.
+		
+		"""
+		self.extrapolatedTimespace = np.arange(self.time[-1],endPoint + self.dt, self.dt)
+
+		for rate in proposedRates:
+			self.extrapolatedSolutions.append(self.solve(self.extrapolatedTimespace, *self.pars, extrapolate=rate))
+		
+		return
+
+	def plot(self, c1: str = 'r.', c2: str = 'b', extraColours = ["b","c","m","y","k"], extraLabels = ["0","24","48","96","192"])->None:
+		f, ax = plt.subplots(1,1)
+
+		ax.plot(self.time,self.CO2_conc, c1, label = "Measurements")
+		ax.plot(self.time[:-20],self.analytical[:-20], c2, label = "Analyitical Solution")
+
+		# for i in range(len(self.extrapolatedSolutions)):
+		# 	ax.plot(self.extrapolatedTimespace, self.extrapolatedSolutions[i], extraColours[i], label = extraLabels[i])
+
+		ax.legend()
+		ax.set_title("Pressure in the Ohaaki geothermal field.")
+		plt.show()
+		
+		return
+	def run(self, plotArgs = [])->None:
+		self.getConcentrationData()
+		self.interpolate(0.1)
+		self.optimise()
+		self.analytical = self.solve(self.time, *self.pars)
+		self.extrapolate(2050, [0, 0.5, 1, 2, 4])
+		self.plot(*plotArgs)
+
+		return
 ## ---------------------------------------------------------
 ## ---------------------------------------------------------
 ## ---------------------------------------------------------
 
 
 if __name__ == "__main__":
-	PressureModel()
+	pressureModel = PressureModel()
+	pressureModel.getPressureData()
+	pressureModel.optimise()
+
+	# print(pressureModel.pars)
+	# raise("deez nuts")
+
+	soluteModel = SoluteModel()
+	
+	soluteModel.pars[0] = pressureModel.pars[0]	# copying the value for a
+	soluteModel.pars[1] = pressureModel.pars[1] # copying the value for b
+
+	
+
+	soluteModel.getConcentrationData()
+	
+	soluteModel.optimise()
+	soluteModel.analytical = soluteModel.solve(soluteModel.time,*soluteModel.pars)
+
+	if 1:
+	# if input() == "plot":
+		f, ax = plt.subplots(1,1)
+
+		ax.plot(soluteModel.time[:70], soluteModel.CO2_conc[:70], "r.", label= "Measurements")
+		ax.plot(soluteModel.time[:70], soluteModel.analytical[:70], "b-", label= "Analytical")
+
+		ax.legend()
+		ax.set_title("CO2 weight percentage")
+		plt.show()
 	pass
