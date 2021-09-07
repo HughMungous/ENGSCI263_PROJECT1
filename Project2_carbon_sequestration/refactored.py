@@ -262,7 +262,7 @@ class PressureModel:
 		
 		return
 
-	def plot(self, c1: str = 'r.', c2: str = 'b', extraColours = ["b","c","m","y","k"], extraLabels = ["0","24","48","96","192"])->None:
+	def plot(self, c1: str = 'r.', c2: str = 'b', extraColours = ["b","c","m","y","k"], extraLabels = ["Injection = 0 kg/s","Injection = 24 kg/s","Injection = 48 kg/s","Injection = 96 kg/s","Injection = 192 kg/s"])->None:
 		f, ax = plt.subplots(1,1)
 
 		ax.plot(self.time,self.pressure, c1, label = "Measurements")

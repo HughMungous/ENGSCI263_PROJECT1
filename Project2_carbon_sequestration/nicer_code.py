@@ -28,7 +28,6 @@ c = 0
 d = 0
 M0 = 0
 extraPressure = []
-extraSolute = []
 k = 0
 dt = 0.1
 C_SOL = []
@@ -183,7 +182,7 @@ def PlotMisfit():
 def Model_Fit():
     pars = [0.00187,0.153,0.00265]
     global pressurecov
-    bestfit_pars, pressurecov = curve_fit(SolvePressureODE, tp[0:33], pp[0:33], pars)
+    bestfit_pars, pressurecov = curve_fit(SolvePressureODE, tp[0:34], pp[0:34], pars)
     
     global a, b, c, time_fit, P_SOL
     a = bestfit_pars[0]
@@ -197,7 +196,7 @@ def Model_Fit():
     f, ax = plt.subplots(1, 1)
     ax.plot(time_fit,P_SOL, 'b', label = 'ODE')
     ax.plot(tp,pp, 'r.', label = 'DATA')
-    plt.axvline(tp[32], color = 'black', linestyle = '--', label = 'Calibration point')
+    plt.axvline(tp[34], color = 'black', linestyle = '--', label = 'Calibration point')
     ax.set_xlabel("Time [years]")
     ax.set_ylabel("Pressure [MPa]")
     ax.legend()
@@ -206,19 +205,18 @@ def Model_Fit():
 
     pars = [0.01,1000]
     global solutecov
-    bestfit_pars, solutecov = curve_fit(SolveSoluteODE, tcc[0:17], cc[0:17], pars, bounds = (0, [10000000,100000000]))
+    bestfit_pars, solutecov = curve_fit(SolveSoluteODE, tcc[0:16], cc[0:16], pars, bounds = (0, [10000000,100000000]))
 
-    global d, M0, C_SOL, q_SOL
+    global d, M0, C_SOL
     d = bestfit_pars[0]
     M0 = bestfit_pars[1]
 
 
     C_SOL = SolveSoluteODE(time_fit, *bestfit_pars)
-    q_SOL = SolveQloss(time_fit, [])
     f, ax = plt.subplots(1, 1)
     ax.plot(time_fit,C_SOL, 'b', label = 'ODE')
     ax.plot(tcc,cc, 'r.', label = 'DATA')
-    plt.axvline(tcc[16], color = 'black', linestyle = '--', label = 'Calibration point')
+    plt.axvline(tcc[15], color = 'black', linestyle = '--', label = 'Calibration point')
     ax.set_xlabel("Time [years]")
     ax.set_ylabel("CO2 Concentration [wt %]")
     ax.legend()
@@ -241,7 +239,7 @@ def Extrapolate(t):
     
     f1, ax = plt.subplots(1, 1)
     f2, ax2 = plt.subplots(1,1)
-    f3, ax3 = plt.subplots(1,1)
+
     for i in range(len(stakeholder)):
         global net
         net = q[-1] - stakeholder[i]*inject
@@ -253,11 +251,8 @@ def Extrapolate(t):
         extraPressure = SolvePressureODE(prediction, *pars)
         ax.plot(np.append(time_fit, prediction), np.append(P_SOL,extraPressure), colours[i], label = 'Prediction' + ' for ' + amount[i])
         pars = [d, M0]
-        global extraSolute
         extraSolute = SolveSoluteODE(prediction, *pars)
         ax2.plot(np.append(time_fit, prediction), np.append(C_SOL,extraSolute), colours[i], label = 'Prediction' + ' for ' + amount[i])
-        qlos = SolveQloss(prediction, [])
-        ax3.plot(np.append(time_fit, prediction), np.append(q_SOL,qlos), colours[i])
 
     ax.axvline(2002, color = 'black', linestyle = '--', label = 'Calibration point')
     ax2.axvline(2002, color = 'black', linestyle = '--', label = 'Calibration point')
@@ -277,52 +272,38 @@ def Extrapolate(t):
     plt.show()
     plt.close(f1)
     plt.show()
-    plt.close(f2)
-    plt.show()
     return
 
 def SolvePressureODE(t, *pars):
+    global step
     if (extrapolation is False):
         ys = 0.*tp
         ys[0] = pp[0]
         for k in range(len(tp)- 1):
+            step = tp[k+1] - tp[k]
             ys[k+1] = improved_euler_step(PressureModel, tp[k], ys[k], tp[k+1] - tp[k], pars)
         return np.interp(t, tp, ys)
     if extrapolation is True:
         ys = 0.*prediction
         ys[0] = P_SOL[-1]
         for k in range(len(prediction)- 1):
+            step = prediction[k+1] - prediction[k]
             ys[k+1] = improved_euler_step(PressureModel, prediction[k], ys[k], prediction[k+1] - prediction[k], pars)
         return ys
-    
-def SolveQloss(t, *pars):
-    global k, step
-    if extrapolation is False:
-        qs = 0.*tq
-        qs[0] = 0 # this is because P-P0 will be 0
-        for k in range(len(tq) - 1):
-            step = tq[k+1] - tq[k]
-            qs[k + 1] = improved_euler_step(qlossModel, tq[k], qs[k], tq[k+1] - tq[k], *pars)
-        return np.interp(t, tq, qs)
-    else:
-        qs = 0.*prediction
-        qs[0] = q_SOL[-1]
-        for k in range(len(prediction) - 1):
-            step = prediction[k+1] - prediction[k]
-            qs[k+1] = improved_euler_step(qlossModel, prediction[k], qs[k], prediction[k+1] - prediction[k], *pars)
-        return qs
 
 def SolveSoluteODE(t, *pars):
-    global k
+    global k, step
     if extrapolation is False:
         ys = 0.*tcc
         ys[0] = cc[0]
         for k in range(len(tcc)- 1):
+            step = tp[k+1] - tp[k]
             ys[k+1] = improved_euler_step(SoluteModel, tcc[k], ys[k], tcc[k+1] - tcc[k], pars)
     else:
         ys = 0.*prediction
         ys[0] = C_SOL[-1]
         for k in range(len(prediction)- 1):
+            step = prediction[k+1] - prediction[k]
             ys[k+1] = improved_euler_step(SoluteModel, prediction[k], ys[k], prediction[k+1] - prediction[k], pars)
         return ys
     return np.interp(t, tcc, ys)
@@ -337,6 +318,8 @@ def SoluteModel(t, conc, d, M0):
     
     if (pressure > pp[0]):
         C1 = conc
+        qloss = (b/a)*(pressure - pp[0])*conc*step
+        qCO2 -= qloss
     else:
         C1 = cc[0]
 
@@ -346,25 +329,14 @@ def PressureModel(t, Pk, a, b, c):
     if (extrapolation is False):
         q = np.interp(t, tq, net)
         dqdti = np.interp(t, tq, dqdt)
+        conc = np.interp(t, tcc, cc)
     else:
         dqdti = 0
         q = net
+        conc = np.interp(t, tcc, cc)
+    if (Pk > pp[0]):
+        q -= ((b/a)*(Pk-pp[0])*conc*step)
     return -a*q - b*(Pk-pp[0]) - c*dqdti
-
-def qlossModel(t, q):
-    if extrapolation is False:
-        P = np.interp(t, time_fit, P_SOL)
-        conc = np.interp(t, time_fit, C_SOL)
-    else:
-        P = extraPressure[k]
-        conc = extraSolute[k]
-    if (P > pp[0]):
-        C_1 = conc
-    else:
-        C_1 = 0
-    global step
-    dt = step
-    return (b/a)*(P-pp[0])*C_1*dt
 
 def improved_euler_step(f, tk, yk, h, pars):
 	""" Compute a single Improved Euler step.
@@ -483,11 +455,6 @@ def Uncertainty():
     concs2 = []
     concs3 = []
     csol = []
-    q0 = []
-    q1 = []
-    q2 = []
-    q3 = []
-    q_SOL = []
     p_pars = np.random.multivariate_normal(pressure_pars, pressurecov, 250)
     flows = [0.5,1,2,4]
     c_pars = np.random.multivariate_normal(solute_pars, solutecov, 250)
