@@ -134,7 +134,7 @@ def interpolate(dtNew: float)->None:
 
 	# interpolating the data
 	pressure	= interp(temp, time, pressure)
-	injection 	= interp(temp, time, qCO2)
+	injection 	= interp(temp, time, injection)
 	CO2_conc 	= interp(temp, time, CO2_conc)
 	net 		= interp(temp, time, net)
 	dqdt 		= interp(temp, time, dqdt)
@@ -154,7 +154,7 @@ def solve(t: List[float], a: float, b: float, c: float, d: float, M0: float, fun
 		params = [basePressure, 0, 0, a, b, c]
 		if extrapolate != None:
 			# assuming that the production stays constant - need to verify
-			params[1] = finalProduction - extrapolate*injectoin[-1]
+			params[1] = finalProduction - extrapolate*injection[-1]
 			result[0] = analyticalPressure[-1]
 
 			for k in range(nt-1):				
@@ -184,7 +184,7 @@ def solve(t: List[float], a: float, b: float, c: float, d: float, M0: float, fun
 
 			for k in range(nt-1):	
 				params[2] = extrapolatedPressure[extrapolationIndices.index(extrapolate)][k]			
-				result[k+1] = Helper.improved_euler_step(soluteModel, t[k], result[k], dt, params)
+				result[k+1] = improved_euler_step(soluteModel, t[k], result[k], dt, params)
 			
 			return result
 
@@ -212,7 +212,7 @@ def optimise()->None:
 		return np.append(pressureSolution, soluteSolution)
 	
 
-	pars, cov = curve_fit(subFunc, np.append(time, time), np.append(pressure, CO2_conc), [a, b, c, d, baseMass])
+	pars, cov = curve_fit(subFunc, np.append(time, time), np.append(pressure, CO2_conc), [a, b, c, d, baseMass], method="lm")
 
 	
 	a, b, c, d, baseMass = pars
@@ -220,8 +220,22 @@ def optimise()->None:
 	
 	return
 
-def extrapolate():
-	pass
+def extrapolate(endPoint: float, proposedRates: List[float])->None:
+	"""	
+	This function creates projections for each of the provided rates from the endpoint
+	of the analytical solution to the declared endpoint for the projection.
+	
+	"""
+	global extrapolatedTimespace, extrapolatedPressure, extrapolatedConcentration, extrapolationIndices
+	
+	extrapolationIndices = proposedRates
+	extrapolatedTimespace = np.arange(time[-1],endPoint + dt, dt)
+
+	for rate in proposedRates:
+		extrapolatedPressure.append(solve(extrapolatedTimespace, a, b, c, d, baseMass, "pressure", extrapolate=rate))
+		extrapolatedConcentration.append(solve(extrapolatedTimespace, a, b, c, d, baseMass, "solute", extrapolate=rate))
+	
+	return
 
 
 
@@ -232,7 +246,7 @@ def extrapolate():
 
 def main():
 	## original data
-	# originalData = getMeasurementData(False)
+	originalData = getMeasurementData(False)
 
 	# f, ax = plt.subplots(1,1)
 	# for k in temp:
@@ -242,11 +256,49 @@ def main():
 	# ax.set_title("Original data.")
 	# plt.show()
 
+	## part 2 - electric boogaloo
 	getMeasurementData(True)
+	interpolate(0.1)
 	optimise()
+	
+	global analyticalPressure, analyticalSolute
+	analyticalPressure = solve(time, a, b, c, d, baseMass, "pressure")
+	analyticalSolute = solve(time, a, b, c, d, baseMass, "solute")
 
-	print(a,b,c,d,baseMass)
-	print(covariance)
+	extrapolate(2050, [0,0.5,1,2,4])
+
+	f, ax = plt.subplots(1,1)
+	plt.subplots()
+	
+	ax.plot(originalData["pressure"][0], originalData["pressure"][1], 'r.', label = "measurements")
+	ax.plot(time, analyticalPressure, label = "analytical sol")
+
+	for i, x in enumerate(extrapolationIndices):
+		ax.plot(extrapolatedTimespace, extrapolatedPressure[i], label = f"{x*injection[-1]} kg/s")
+
+	ax.legend()
+	ax.set_title("Pressure solution")
+	plt.show()
+
+	f, ax = plt.subplots(1,1)
+	plt.subplots()
+	
+	ax.plot(originalData["concentration"][0], originalData["concentration"][1], 'r.', label = "measurements")
+	ax.plot(time, analyticalSolute, label = "analytical sol")
+
+	for i, x in enumerate(extrapolationIndices):
+		ax.plot(extrapolatedTimespace, extrapolatedConcentration[i], label = f"{x*injection[-1]} kg/s")
+
+	ax.legend()
+	ax.set_title("Solute solution")
+	plt.show()
+
+	
+
+
+
+	# print(a,b,c,d,baseMass)
+	# print(covariance)
 	return
 
 
