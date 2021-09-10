@@ -71,12 +71,15 @@ DONE:
 5. plot new version
 6. extrapolate
 7. plot
-8. Uncertainty
+8. Uncertainty (posterior paramater distribution)
+9. Misfit
 
 TODO:
 
-9. Missfit
 10. Benchmark
+11. Uncertainty (confidence intervals)
+12. confint on prediction???
+13. comments & docstrings
 """
 
 def getMeasurementData(interpolated: bool):
@@ -182,24 +185,24 @@ def solve(t: List[float], a: float, b: float, c: float, d: float, M0: float, fun
 	elif func == "solute":
 		result[0] = baseConcentration
 		#dt, c0, P, P0, injection, M0, a, b, d
-		params = [dt, baseConcentration, 0, basePressure, 0, M0, a, b, d]
+		params = [baseConcentration, 0, basePressure, 0, M0, a, b, d]
 		
 		if extrapolate != None:
 			# assuming that the production stays constant - need to verify
-			params[4] = injection[-1]*extrapolate
+			params[3] = injection[-1]*extrapolate
 
 			# result[0] = analyticalSolute[-1]
 			result[0] = finalDataPoint
 
 			for k in range(nt-1):	
-				params[2] = extraP[k]			
+				params[1] = extraP[k]			
 				result[k+1] = improved_euler_step(soluteModel, t[k], result[k], dt, params)
 			
 			return result
 
 		for k in range(nt-1):
-			params[2] = pressure[k]
-			params[4] = injection[k]
+			params[1] = pressure[k]
+			params[3] = injection[k]
 			result[k+1] = improved_euler_step(soluteModel, t[k], result[k], dt, params)
 
 		return result
@@ -248,7 +251,8 @@ def extrapolate(endPoint: float, proposedRates: List[float], pars: List[float], 
 		for rate in proposedRates:
 			extrapolatedPressure.append(solve(extrapolatedTimespace, *pars, "pressure", finalDataPoint[0], extrapolate=rate))
 			extrapolatedConcentration.append(solve(extrapolatedTimespace, *pars, "solute", finalDataPoint[1], extraP = extrapolatedPressure[-1], extrapolate=rate))
-
+		return
+		
 	pressureSol, concentrationSol = [], []
 
 	for rate in proposedRates:
@@ -287,9 +291,30 @@ def misfit(pressureTime: List[float], pressure: List[float], concentrationTime: 
 	cRes = interp(concentrationTime,time, analyticalSolute)
 	return np.array([pressure[i]-pRes[i] for i in range(len(pRes))]), np.array([concentration[i]-cRes[i] for i in range(len(cRes))]) 
 	
+def benchmark(t: List[float], newdt: float, C0, P0, q0, q, a, b, c, d, M0, func: str):
+	numerical, analytical = 0.*t, 0.*t
+	if func == "pressure":
+		analytical[0] = P0 + ((-a*q0)/b)*(1-np.exp(-b*t[0]))
+		numerical[0] = P0
+		steadyState = P0 - a * q0 / b
 
-def benchmark(t: List[float], newdt: float):
-	pass
+		for i in range(len(t)-1):
+			analytical[i+1] = P0 + ((-a*q0)/b)*(1-np.exp(-b*t[i+1]))
+			numerical[i+1] = improved_euler_step(pressureModel, t[i], numerical[i], newdt, [P0, q, 0, a, b, c])
+			
+	else:
+		k = q / M0
+		L = (k*C0 - k)/(k + d)
+
+		analytical[0] = (k + (d * C0))/(k + d) + L/(np.exp(t[0] * (k + d)))
+		numerical[0] = C0
+		steadyState = ((q / M0) + d*C0)/((q / M0) + d) 
+		
+		for i in range(len(t)-1):
+			analytical[i+1] = (k + (d * C0))/(k + d) + L/(np.exp(t[0] * (k + d)))
+			numerical[i+1] = improved_euler_step(soluteModel, t[i], numerical[i], newdt, [C0, basePressure, basePressure, q, M0, a, b, d])
+		
+	return numerical, analytical, steadyState
 
 ## TESTING
 # ------------------------------------------
@@ -407,6 +432,72 @@ def main(interpoRate: float, calibrationPoint: int, nPars: int = 3, nPredicts: i
 		plt.show()
 	
 	if plotting[4]:
+		dt = 0.1
+		tempTime = np.arange(0, 10 + dt, dt)
+
+		numerical, analytical, steadyState = benchmark(tempTime, dt, 0, basePressure, 4, 4, 1, 2, 0, 0, 0, "pressure")
+
+		# plot 1
+		f, ax = plt.subplots(1, 1) # plotting numerical vs analytical solutions
+
+		ax.plot(tempTime,analytical, 'b', label = 'Analytical')
+		ax.plot(tempTime, numerical, 'kx', label = 'Numerical')
+		ax.set_xlabel("Time [seconds]")
+		ax.set_ylabel("Pressure [MPa]")
+
+		ax.axhline(steadyState, linestyle = '--', color = 'red', label = 'steady state')
+
+		ax.legend()
+		ax.set_title("Analytical vs Numerical Solution Benchmark for Pressure ODE")
+
+		plt.show()
+
+		# plot 2
+		dt = 1.1 # changing time step for instability analysis
+		tempTime = np.arange(0, 10+dt, dt)
+		numerical, analytical, steadyState = benchmark(tempTime, dt, 0, basePressure, 4, 4, 1, 2, 0, 0, 0, "pressure")
+
+		f, ax = plt.subplots(1, 1) # plotting numerical vs analytical solutions
+		ax.plot(tempTime,analytical, 'b', label = 'Analytical')
+		ax.plot(tempTime,numerical, 'kx', label = 'Numerical')
+		ax.set_xlabel("Time [seconds]")
+		ax.set_ylabel("Pressure [MPa]")
+		ax.axhline(steadyState, linestyle = '--', color = 'red', label = 'steady state')
+
+		ax.legend()
+		ax.set_title("Instability at a large time step for Pressure ODE")
+		plt.show()
+
+		# plot 3
+		dt = 0.25 # performing same process as above except for Solute ODE
+		tempTime = np.arange(0, 10 + dt, dt)
+		numerical, analytical, steadyState = benchmark(tempTime, dt, baseConcentration, basePressure, 4, 1, 1, 2, 0, 3, 1, "solute")
+		
+		# currently broken :()
+		f, ax = plt.subplots(1, 1) # plotting analytical vs numerical results
+		ax.plot(tempTime,analytical, 'b', label = 'Analytical')
+		ax.plot(tempTime, numerical, 'kx', label = 'Numerical')
+		ax.axhline(steadyState, linestyle = '--', color = 'red', label = 'steady state')
+		ax.set_xlabel("Time [seconds]")
+		ax.set_ylabel("CO2 Concentration [wt %]")
+		ax.legend()
+		ax.set_title("Analytical vs Numerical Solution Benchmark for Solute ODE")
+		plt.show()
+
+		# plot 4 - this should be looped if possible
+		dt = 1.1
+		tempTime = np.arange(0, 10 + dt, dt)
+		numerical, analytical, steadyState = benchmark(tempTime, dt, baseConcentration, basePressure, 4, 1, 1, 2, 0, 3, 1, "solute")
+
+		f, ax = plt.subplots(1, 1)
+		ax.plot(tempTime,analytical, 'b', label = 'Analytical')
+		ax.plot(tempTime, numerical, 'kx', label = 'Numerical')
+		ax.axhline(steadyState, linestyle = '--', color = 'red', label = 'steady state')
+		ax.set_xlabel("Time [seconds]")
+		ax.set_ylabel("CO2 Concentration [wt %]")
+		ax.legend()
+		ax.set_title("Instability at a large time step for Solute ODE")
+		plt.show()
 		pass
 	# print(a,b,c,d,baseMass)
 	# print(covariance[3][3:])
@@ -416,4 +507,4 @@ def main(interpoRate: float, calibrationPoint: int, nPars: int = 3, nPredicts: i
 
 
 if __name__ == "__main__":
-	main(0.25, 2010, 3, plotting=[False,False,False,True,True])
+	main(0.25, 2010, 3, plotting=[False,False,False,False,True])
