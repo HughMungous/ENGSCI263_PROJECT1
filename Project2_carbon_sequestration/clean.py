@@ -158,6 +158,7 @@ def solve(t: List[float], a: float, b: float, c: float, d: float, M0: float, fun
 	if func == "pressure":
 		result[0] = basePressure
 		params = [basePressure, 0, 0, a, b, c]
+
 		if extrapolate != None:
 			# assuming that the production stays constant - need to verify
 			params[1] = finalProduction - extrapolate*injection[-1]
@@ -196,13 +197,13 @@ def solve(t: List[float], a: float, b: float, c: float, d: float, M0: float, fun
 			
 			return result
 
-
 		for k in range(nt-1):
 			params[2] = pressure[k]
 			params[4] = injection[k]
 			result[k+1] = improved_euler_step(soluteModel, t[k], result[k], dt, params)
 
 		return result
+
 	else:
 		raise("implementation for qLoss missing")
 		pass
@@ -287,7 +288,7 @@ def misfit(pressureTime: List[float], pressure: List[float], concentrationTime: 
 	return np.array([pressure[i]-pRes[i] for i in range(len(pRes))]), np.array([concentration[i]-cRes[i] for i in range(len(cRes))]) 
 	
 
-def benchmark(t: List[float], newdt: float, ):
+def benchmark(t: List[float], newdt: float):
 	pass
 
 ## TESTING
@@ -295,7 +296,7 @@ def benchmark(t: List[float], newdt: float, ):
 # 
 # ------------------------------------------
 
-def main(interpoRate: float, calibrationPoint: int, nPars: int = 3):
+def main(interpoRate: float, calibrationPoint: int, nPars: int = 3, nPredicts: int = 50, plotting: List[bool] = [False]*5):
 	colours = {
 		0: "c",
 		0.5:"m",
@@ -306,8 +307,7 @@ def main(interpoRate: float, calibrationPoint: int, nPars: int = 3):
 	## original data
 	originalData = getMeasurementData(False)
 
-	plottingOriginal = False
-	if plottingOriginal:
+	if plotting[0]:
 		f1, ax1a = plt.subplots(1,1)
 		f2, ax2a = plt.subplots(1,1)
 
@@ -345,8 +345,7 @@ def main(interpoRate: float, calibrationPoint: int, nPars: int = 3):
 	## extrapolation
 	extrapolate(2050, [0,0.5,1,2,4], [a,b,c,d,baseMass], [analyticalPressure[-1], analyticalSolute[-1]])
 
-	plotting2 = False
-	if plotting2:
+	if plotting[1]:
 		f1, ax1 = plt.subplots(1,1)
 		f2, ax2 = plt.subplots(1,1)
 		# plt.subplots()
@@ -369,11 +368,9 @@ def main(interpoRate: float, calibrationPoint: int, nPars: int = 3):
 		
 		plt.show()
 
-	n = 50
-	pPos, sPos, pPosEx, sPosEx = uncertainty(n, nPars)
+	if plotting[2]:
+		pPos, sPos, pPosEx, sPosEx = uncertainty(nPredicts, nPars)
 
-	plotting3 = False
-	if plotting3:
 		f1, ax1 = plt.subplots(1,1)
 		f2, ax2 = plt.subplots(1,1)
 		
@@ -387,11 +384,10 @@ def main(interpoRate: float, calibrationPoint: int, nPars: int = 3):
 
 		ax1.set_title("Pressure solution")
 		ax2.set_title("Solute solution")
+
 		plt.show()
 
-	
-	plotting4 = True	
-	if plotting4:
+	if plotting[3]:
 		misfitPressure, misfitConcentration = misfit(*originalData["pressure"], *originalData["concentration"])
 
 		f1, ax1 = plt.subplots(1, 1)
@@ -409,7 +405,9 @@ def main(interpoRate: float, calibrationPoint: int, nPars: int = 3):
 		ax2.set_title("Best Fit Solute LPM Model")
 
 		plt.show()
-
+	
+	if plotting[4]:
+		pass
 	# print(a,b,c,d,baseMass)
 	# print(covariance[3][3:])
 	# print(covariance[4][3:])
@@ -418,4 +416,4 @@ def main(interpoRate: float, calibrationPoint: int, nPars: int = 3):
 
 
 if __name__ == "__main__":
-	main(0.25, 2010, 3)
+	main(0.25, 2010, 3, plotting=[False,False,False,True,True])
