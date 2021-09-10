@@ -392,22 +392,23 @@ def SolveSoluteODE(t, *pars):
 
 def SoluteModel(t, conc, d, M0):
     
-    if extrapolation is False:
+    if not extrapolation:
         qCO2 = np.interp(t, tq, qc)
         pressure = np.interp(t, time_fit, P_SOL)
     else:
         qCO2 = injec
         pressure = extraPressure[k]
     
-    if (pressure > pp[0]):
-        C1 = conc
-    else:
-        C1 = cc[0]
+    C1 = conc if pressure > pp[0] else cc[0]
+    # if pressure > pp[0]:
+    #     C1 = conc
+    # else:
+    #     C1 = cc[0]
 
     return (((1 - conc)*qCO2)/ M0) - (b/(a * M0))*(pressure - pp[0])*(C1 - conc) - d*(conc - cc[0])
 
 def PressureModel(t, Pk, a, b, c):
-    if (extrapolation is False):
+    if not extrapolation:
         q = np.interp(t, tq, net)
         dqdti = np.interp(t, tq, dqdt)
     else:
