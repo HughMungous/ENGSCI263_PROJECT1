@@ -73,7 +73,7 @@ def soluteModel(t: float, C: float, dt: float, C0: float, P: float, P0: float, q
         dCdt : float
             Derivative of Pressure variable with respect to independent variable.
     '''
-    q -= qLossModel(dt, C, P, P0, a, b)
+    # q -= qLossModel(dt, C, P, P0, a, b)
     
     if P > P0:
         # the equation simplifies in the case of P > P0
