@@ -404,74 +404,132 @@ def Model_Fit():
     return
 
 def SolveQLoss(t, *pars):
-    global step
-    if (extrapolation is False):
-        ys = 0.*tp
-        ys[0] = 0
+    """ Solves Q loss using Improved Euler Method
+
+		Parameters
+		----------
+		t     : np.array
+            time range to solve over
+        *pars : np.array
+            usually contains parameters a and b
+		Returns
+		-------
+		np.array
+            cumulative sum of CO2 lost to groundwater
+	"""
+    global step # sets up rolling dt so time steps can be more accurate
+    if (extrapolation is False): 
+        ys = 0.*tp # sets up solution array
+        ys[0] = 0 # initial value is 0 as P-P0 is 0
+        # iteratively solves for qloss using improved euler method
         for k in range(len(tp)- 1):
-            step = tp[k+1] - tp[k]
+            step = tp[k+1] - tp[k] # changes step size accordingly
             ys[k+1] = improved_euler_step(QLossModel, tp[k], ys[k], tp[k+1] - tp[k], pars)
-        return np.cumsum(np.interp(t, tp, ys))
+        return np.cumsum(np.interp(t, tp, ys)) # returns the cumulative sum of qloss
     if extrapolation is True:
         ys = 0.*prediction
-        ys[0] = Q_SOL[-1]
+        ys[0] = Q_SOL[-1] # if extrapolating then the first value is the last value solved for
         for k in range(len(prediction)- 1):
-            step = prediction[k+1] - prediction[k]
+            step = prediction[k+1] - prediction[k] # changing step size
             ys[k+1] = improved_euler_step(QLossModel, prediction[k], ys[k], prediction[k+1] - prediction[k], pars)
-        return np.cumsum(ys)
+        return np.cumsum(ys) # returns cumulative sum of qloss
 
-def QLossModel(t,y,*pars):
+def QLossModel(t,Q,*pars):
+    """ Solves Q loss at different time points
+    
+		Parameters
+		----------
+		t     : float
+            time to solve equation with (years)
+        Q     : float
+            dependent variable
+        *pars : np.array
+            usually contains parameters a and b
+		Returns
+		-------
+		float
+            qloss over time step
+	"""
     if extrapolation is False:
-        P = np.interp(t, time_fit, P_SOL)
+        P = np.interp(t, time_fit, P_SOL) # need to get Pressure values if inside data range
+        # finds C' to use
         if (P > pp[0]):
             C_1 = np.interp(t, time_fit, C_SOL)
         else:
             C_1 = 0
     else:
-        P = extraPressure[k]
+        P = extraPressure[k] # gets relevant pressure values
+        # finds correct C' to use
         if (P > pp[0]):
             C_1 = extraSolute[k]
         else:
             C_1 = 0
+    # returns qloss
     return (pars[1]/pars[0])*(P-pp[0])*C_1*step
 
 def Extrapolate(t):
+    """ Extrapolates the data to a time point, t, in the future.
 
-    inject = qc[-1]
-    global prediction
+		Parameters
+		----------
+		t     : float
+            time to solve up to (years)
+		
+        Returns
+		-------
+		None
+        
+        Notes
+        -----
+        t needs to be greater than 2019.5
+	"""
+    if (t < tp[-1]):
+        raise ValueError # raises error if t is not allowed
+
+    inject = qc[-1] # gets the most recent injection value
+
+    global prediction # sets up prediction array for time to solve over
     prediction = np.arange(tp[-1],t, dt)
     
-    stakeholder = [0,0.5,1,2,4]
-    colours = ['g', 'r','b','y','k']
+    stakeholder = [0,0.5,1,2,4] # injection multipliers to solve with
+    colours = ['g', 'r','b','y','k'] # colours to use with the graphing
 
     global extrapolation
-    extrapolation = True
+    extrapolation = True # setting extrapolation to true to initialise correct solvers
     
-    f1, ax = plt.subplots(1, 1)
+    f1, ax = plt.subplots(1, 1) # initialising plots
     f2, ax2 = plt.subplots(1,1)
     f3, ax3 = plt.subplots(1,1)
 
-    for i in range(len(stakeholder)):
+    for i in range(len(stakeholder)): # looping over injection mulitipliers
         global net
-        net = q[-1] - stakeholder[i]*inject
+        net = q[-1] - stakeholder[i]*inject # changing global net amount
+        
         global injec
-        injec = inject*stakeholder[i]
-        pars = [a,b,c]
-        global extraPressure
+        injec = inject*stakeholder[i] # changing global injection amount
+        
+        pars = [a,b,c] # using optimal parameters
+        
+        global extraPressure # extraPressure will be used for SoluteODE
         extraPressure = SolvePressureODE(prediction, *pars)
+        # plots relevant data
         ax.plot(np.append(time_fit, prediction), np.append(P_SOL,extraPressure), colours[i], label = 'Prediction' + ' for ' + str(injec) + ' kg/s')
-        pars = [d, M0]
-        global extraSolute
+        
+        pars = [d, M0] # using optimal parameters
+        
+        global extraSolute # this will be used for qloss ODE
         extraSolute = SolveSoluteODE(prediction, *pars)
+        # plots solved Solute values
         ax2.plot(np.append(time_fit, prediction), np.append(C_SOL,extraSolute), colours[i], label = 'Prediction' + ' for ' + str(injec) + ' kg/s')
-        pars = [a,b]
+        
+        pars = [a,b] # using a and b for qloss
+        
         qloss = SolveQLoss(prediction, *pars)
+        # plotting qloss
         ax3.plot(np.append(time_fit, prediction), np.append(Q_SOL, qloss), colours[i], label = 'Prediction' + ' for ' + str(injec) + ' kg/s')
-
-    ax.axvline(2002, color = 'black', linestyle = '--', label = 'Calibration point')
+    
+    # adding informative lines and labels
     ax.axhline(pp[0], color = 'cyan', linestyle = '--', label = 'Ambient Value')
-
-    ax2.axvline(2002, color = 'black', linestyle = '--', label = 'Calibration point')
     ax2.axhline(.1, color = 'cyan', linestyle = '--', label = 'Corrosive Point')
 
     ax.legend()
@@ -499,10 +557,23 @@ def Extrapolate(t):
     return
 
 def SolvePressureODE(t, *pars):
+    """ Solves Pressure ODE using Improved Euler Method
+
+		Parameters
+		----------
+		t     : np.array
+            time range to solve over
+        *pars : np.array
+            usually contains parameters a, b and c
+		Returns
+		-------
+		np.array
+            pressure values which correlate to t array 
+	"""
     global step
     if not extrapolation:
         ys = 0.*tp
-        ys[0] = pp[0]
+        ys[0] = pp[0] # sets inital value of pressure
         for k in range(len(tp)- 1):
             step = tp[k+1] - tp[k]
             ys[k+1] = improved_euler_step(PressureModel, tp[k], ys[k], tp[k+1] - tp[k], pars)
