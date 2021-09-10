@@ -214,7 +214,7 @@ def Model_Fit():
     a = bestfit_pars[0]
     b = bestfit_pars[1]
     c = bestfit_pars[2]
-   
+    print("Best parameters found : \na = " + str(a) + "\n" + "b = " + str(b) + "\n" + "c = " + str(c))
     P_SOL = SolvePressureODE(time_fit, *bestfit_pars)
     
     f, ax = plt.subplots(1, 1)
@@ -227,14 +227,14 @@ def Model_Fit():
     ax.set_title("Pressure flow in the Ohaaki geothermal field")
     plt.show()
 
-    pars = [0.01,1000]
+    pars = [0.1, 999999999999]
     global solutecov
-    bestfit_pars, solutecov = curve_fit(SolveSoluteODE, tcc, cc, pars, bounds = (0, [10000000,100000000]))
+    bestfit_pars, solutecov = curve_fit(SolveSoluteODE, tcc, cc, pars)
 
     global d, M0, C_SOL
     d = bestfit_pars[0]
     M0 = bestfit_pars[1]
-
+    print("d = " + str(d) + "\n" + "M0 = " + str(M0) + "\n")
 
     C_SOL = SolveSoluteODE(time_fit, *bestfit_pars)
     f, ax = plt.subplots(1, 1)
@@ -399,10 +399,6 @@ def SoluteModel(t, conc, d, M0):
         pressure = extraPressure[k]
     
     C1 = conc if pressure > pp[0] else cc[0]
-    # if pressure > pp[0]:
-    #     C1 = conc
-    # else:
-    #     C1 = cc[0]
 
     return (((1 - conc)*qCO2)/ M0) - (b/(a * M0))*(pressure - pp[0])*(C1 - conc) - d*(conc - cc[0])
 
