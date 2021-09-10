@@ -31,6 +31,34 @@ dt = 1
 C_SOL = []
 
 def main():
+    tm, CO2_inj = np.genfromtxt('data/cs_c.txt',delimiter=',',skip_header=1).T
+    tq, CO2_perc = np.genfromtxt('data/cs_cc.txt',delimiter=',',skip_header=1).T
+    ty, pres = np.genfromtxt('data/cs_p.txt',delimiter=',',skip_header=1).T
+    tz, prod = np.genfromtxt('data/cs_q.txt',delimiter=',',skip_header=1).T
+    f,ax1 = plt.subplots(nrows=1,ncols=1)
+    ax2 = ax1.twinx()				# twinned plots are a powerful way to juxtapose data
+    ax1.plot(tm, CO2_inj, 'b-', label= 'CO2 Injection')
+    ax1.plot(tz, prod, 'r-', label= 'Extraction')
+    ax2.plot(tq, CO2_perc*100, 'y-', label= 'CO2 Percentage')
+    ax1.legend(loc=2)
+    ax2.legend(loc = 1)
+    ax1.set_ylabel('production and injection rate [kg/s]')
+    ax2.set_ylabel('CO2 concentration [wt %]')
+    ax1.set_xlabel('time [yr]')
+    ax2.set_title('Extraction and Injection rates with CO2 Concentration at Ohaaki')
+    plt.show()
+    f,ax1 = plt.subplots(nrows=1,ncols=1)
+    ax2 = ax1.twinx()
+    ax1.plot(tm, CO2_inj, 'b-', label= 'CO2 Injection')
+    ax1.plot(tz, prod, 'r-', label= 'Extraction')
+    ax2.plot(ty, pres, 'g-', label= 'Pressure')
+    ax1.legend(loc=2)
+    ax2.legend(loc = 1)
+    ax1.set_ylabel('production and injection rate [kg/s]')
+    ax2.set_ylabel('pressure [MPa]')
+    ax1.set_xlabel('time [yr]')
+    ax2.set_title('Extraction and Injection rates with Pressure Change at Ohaaki')        
+    plt.show()
 
     Model_Fit()
 
@@ -178,7 +206,9 @@ def PlotMisfit():
 def Model_Fit():
     global time_fit, Pressure, a, b, c
     time_fit = np.arange(tp[0], tp[-1], dt)
-    
+    a = 0.001
+    b = 0.08
+    c = 0.002
     pars = [a,b,c]
     global pressurecov
     bestfit_pars, pressurecov = curve_fit(SolvePressureODE, tp, pp, pars)
@@ -219,7 +249,51 @@ def Model_Fit():
     ax.legend()
     ax.set_title("CO2 concentration in the Ohaaki geothermal field.")
     plt.show()
+    pars = [a,b]
+    global Q_SOL
+
+    Q_SOL = SolveQLoss(time_fit, *pars)
+
+    f, ax = plt.subplots(1, 1)
+    ax.plot(time_fit,Q_SOL, 'b', label = 'ODE')
+    ax.set_xlabel("Time [years]")
+    ax.set_ylabel("CO2 lost [kg]")
+    ax.legend()
+    ax.set_title("CO2 LOST.")
+    plt.show()
     return
+
+def SolveQLoss(t, *pars):
+    global step
+    if (extrapolation is False):
+        ys = 0.*tp
+        ys[0] = 0
+        for k in range(len(tp)- 1):
+            step = tp[k+1] - tp[k]
+            ys[k+1] = improved_euler_step(QLossModel, tp[k], ys[k], tp[k+1] - tp[k], pars)
+        return np.cumsum(np.interp(t, tp, ys))
+    if extrapolation is True:
+        ys = 0.*prediction
+        ys[0] = Q_SOL[-1]
+        for k in range(len(prediction)- 1):
+            step = prediction[k+1] - prediction[k]
+            ys[k+1] = improved_euler_step(QLossModel, prediction[k], ys[k], prediction[k+1] - prediction[k], pars)
+        return np.cumsum(ys)
+
+def QLossModel(t, *pars):
+    if extrapolation is False:
+        P = np.interp(t, time_fit, P_SOL)
+        if (P > pp[0]):
+            C_1 = np.interp(t, time_fit, C_SOL)
+        else:
+            C_1 = 0
+    else:
+        P = extraPressure[k]
+        if (P > pp[0]):
+            C_1 = extraSolute[k]
+        else:
+            C_1 = 0
+    return (b/a)*(P-pp[0])*C_1*step
 
 def Extrapolate(t):
 
@@ -235,6 +309,7 @@ def Extrapolate(t):
     
     f1, ax = plt.subplots(1, 1)
     f2, ax2 = plt.subplots(1,1)
+    f3, ax3 = plt.subplots(1,1)
 
     for i in range(len(stakeholder)):
         global net
@@ -246,8 +321,12 @@ def Extrapolate(t):
         extraPressure = SolvePressureODE(prediction, *pars)
         ax.plot(np.append(time_fit, prediction), np.append(P_SOL,extraPressure), colours[i], label = 'Prediction' + ' for ' + str(injec) + ' kg/s')
         pars = [d, M0]
+        global extraSolute
         extraSolute = SolveSoluteODE(prediction, *pars)
         ax2.plot(np.append(time_fit, prediction), np.append(C_SOL,extraSolute), colours[i], label = 'Prediction' + ' for ' + str(injec) + ' kg/s')
+        pars = [a,b]
+        qloss = SolveQLoss(prediction, *pars)
+        ax3.plot(np.append(time_fit, prediction), np.append(Q_SOL, qloss), colours[i], label = 'Prediction' + ' for ' + str(injec) + ' kg/s')
 
     ax.axvline(2002, color = 'black', linestyle = '--', label = 'Calibration point')
     ax2.axvline(2002, color = 'black', linestyle = '--', label = 'Calibration point')
@@ -255,6 +334,7 @@ def Extrapolate(t):
 
     ax.legend()
     ax2.legend()
+    ax3.legend()
 
     ax2.set_title("Weight Percentage of CO2 in Ohaaki geothermal field")
     ax2.set_xlabel("Time [years]")
@@ -264,8 +344,15 @@ def Extrapolate(t):
     ax.set_ylabel("Pressure [MPa]")
     ax.set_xlabel("Time [years]")
 
+    ax3.set_title("CO2 Lost due to seepage")
+    ax3.set_ylabel("CO2 lost [kg]")
+    ax3.set_xlabel("Time [years]")
+
+
     plt.show()
     plt.close(f1)
+    plt.show()
+    plt.close(f2)
     plt.show()
     return
 
@@ -532,6 +619,6 @@ def MSPE_A():
     return best_A,best_B,best_C
 
 if __name__ == "__main__":
-    global a,b,c
-    a,b,c = MSPE_A()
+    #global a,b,c
+    #a,b,c = MSPE_A()
     main()
