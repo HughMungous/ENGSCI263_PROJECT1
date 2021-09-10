@@ -36,7 +36,7 @@ def main():
     ty, pres = np.genfromtxt('data/cs_p.txt',delimiter=',',skip_header=1).T
     tz, prod = np.genfromtxt('data/cs_q.txt',delimiter=',',skip_header=1).T
     f,ax1 = plt.subplots(nrows=1,ncols=1)
-    ax2 = ax1.twinx()				# twinned plots are a powerful way to juxtapose data
+    ax2 = ax1.twinx()
     ax1.plot(tm, CO2_inj, 'b-', label= 'CO2 Injection')
     ax1.plot(tz, prod, 'r-', label= 'Extraction')
     ax2.plot(tq, CO2_perc*100, 'y-', label= 'CO2 Percentage')
@@ -280,7 +280,7 @@ def SolveQLoss(t, *pars):
             ys[k+1] = improved_euler_step(QLossModel, prediction[k], ys[k], prediction[k+1] - prediction[k], pars)
         return np.cumsum(ys)
 
-def QLossModel(t, *pars):
+def QLossModel(t,y,*pars):
     if extrapolation is False:
         P = np.interp(t, time_fit, P_SOL)
         if (P > pp[0]):
@@ -293,7 +293,7 @@ def QLossModel(t, *pars):
             C_1 = extraSolute[k]
         else:
             C_1 = 0
-    return (b/a)*(P-pp[0])*C_1*step
+    return (pars[1]/pars[0])*(P-pp[0])*C_1*step
 
 def Extrapolate(t):
 
