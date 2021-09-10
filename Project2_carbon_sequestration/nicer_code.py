@@ -465,7 +465,6 @@ def Uncertainty():
     global P_SOL
     global C_SOL
     ogPSOL = P_SOL
-    prediction = np.arange(tp[-1],2050, 0.1)
     for pprams in p_pars:
         a = pprams[0]
         b = pprams[1]
