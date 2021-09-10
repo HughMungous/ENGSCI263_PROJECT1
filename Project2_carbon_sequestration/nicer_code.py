@@ -22,14 +22,12 @@ qc = np.append(np.zeros(33), qc)
 P_SOL = []
 extrapolation = False
 other_extrapolation = False
-a = 0
-b = 0
-c = 0
+method = False
 d = 0
 M0 = 0
 extraPressure = []
 k = 0
-dt = 0.1
+dt = 1
 C_SOL = []
 
 def main():
@@ -145,8 +143,6 @@ def PressureBenchmark(P0, a, b , c, q0, time, dt):
 def PlotMisfit():
     pressure_time = np.genfromtxt('data/cs_p.txt', skip_header = 1,delimiter = ',', usecols = 0)
     pressure = np.genfromtxt('data/cs_p.txt', skip_header = 1,delimiter = ',', usecols = 1)
-    # we dont have data that matches with time values in pressure array
-    # so we interpret the SOL_P stuff
     P_Result = []
     for i in range(len(pressure_time)):
         P_Result.append(np.interp(pressure_time[i], time_fit, P_SOL))
@@ -180,17 +176,18 @@ def PlotMisfit():
     return
     
 def Model_Fit():
-    pars = [0.00187,0.153,0.00265]
-    global pressurecov
-    bestfit_pars, pressurecov = curve_fit(SolvePressureODE, tp[0:34], pp[0:34], pars)
+    global time_fit, Pressure, a, b, c
+    time_fit = np.arange(tp[0], tp[-1], dt)
     
-    global a, b, c, time_fit, P_SOL
+    pars = [a,b,c]
+    global pressurecov
+    bestfit_pars, pressurecov = curve_fit(SolvePressureODE, tp, pp, pars)
+    
+    global P_SOL
     a = bestfit_pars[0]
     b = bestfit_pars[1]
     c = bestfit_pars[2]
-
-    time_fit = np.arange(tp[0], tp[-1], dt)
-    
+   
     P_SOL = SolvePressureODE(time_fit, *bestfit_pars)
     
     f, ax = plt.subplots(1, 1)
@@ -200,12 +197,12 @@ def Model_Fit():
     ax.set_xlabel("Time [years]")
     ax.set_ylabel("Pressure [MPa]")
     ax.legend()
-    ax.set_title("Pressure flow in the Ohaaki geothermal field.")
+    ax.set_title("Pressure flow in the Ohaaki geothermal field. With c parameter.")
     plt.show()
 
     pars = [0.01,1000]
     global solutecov
-    bestfit_pars, solutecov = curve_fit(SolveSoluteODE, tcc[0:16], cc[0:16], pars, bounds = (0, [10000000,100000000]))
+    bestfit_pars, solutecov = curve_fit(SolveSoluteODE, tcc, cc, pars, bounds = (0, [10000000,100000000]))
 
     global d, M0, C_SOL
     d = bestfit_pars[0]
@@ -231,7 +228,6 @@ def Extrapolate(t):
     prediction = np.arange(tp[-1],t, dt)
     
     stakeholder = [0.5,1,2,4]
-    amount = ['half injection', 'same amount', 'double the rate', 'CEL proposed']
     colours = ['r','b','y','k']
 
     global extrapolation
@@ -243,16 +239,15 @@ def Extrapolate(t):
     for i in range(len(stakeholder)):
         global net
         net = q[-1] - stakeholder[i]*inject
-       # net = statistics.mean(net)
         global injec
         injec = inject*stakeholder[i]
         pars = [a,b,c]
         global extraPressure
         extraPressure = SolvePressureODE(prediction, *pars)
-        ax.plot(np.append(time_fit, prediction), np.append(P_SOL,extraPressure), colours[i], label = 'Prediction' + ' for ' + amount[i])
+        ax.plot(np.append(time_fit, prediction), np.append(P_SOL,extraPressure), colours[i], label = 'Prediction' + ' for ' + str(injec) + ' kg/s')
         pars = [d, M0]
         extraSolute = SolveSoluteODE(prediction, *pars)
-        ax2.plot(np.append(time_fit, prediction), np.append(C_SOL,extraSolute), colours[i], label = 'Prediction' + ' for ' + amount[i])
+        ax2.plot(np.append(time_fit, prediction), np.append(C_SOL,extraSolute), colours[i], label = 'Prediction' + ' for ' + str(injec) + ' kg/s')
 
     ax.axvline(2002, color = 'black', linestyle = '--', label = 'Calibration point')
     ax2.axvline(2002, color = 'black', linestyle = '--', label = 'Calibration point')
@@ -309,6 +304,7 @@ def SolveSoluteODE(t, *pars):
     return np.interp(t, tcc, ys)
 
 def SoluteModel(t, conc, d, M0):
+    
     if extrapolation is False:
         qCO2 = np.interp(t, tq, qc)
         pressure = np.interp(t, time_fit, P_SOL)
@@ -318,8 +314,6 @@ def SoluteModel(t, conc, d, M0):
     
     if (pressure > pp[0]):
         C1 = conc
-        qloss = (b/a)*(pressure - pp[0])*conc*step
-        qCO2 -= qloss
     else:
         C1 = cc[0]
 
@@ -329,13 +323,10 @@ def PressureModel(t, Pk, a, b, c):
     if (extrapolation is False):
         q = np.interp(t, tq, net)
         dqdti = np.interp(t, tq, dqdt)
-        conc = np.interp(t, tcc, cc)
     else:
         dqdti = 0
         q = net
-        conc = np.interp(t, tcc, cc)
-    if (Pk > pp[0]):
-        q -= ((b/a)*(Pk-pp[0])*conc*step)
+
     return -a*q - b*(Pk-pp[0]) - c*dqdti
 
 def improved_euler_step(f, tk, yk, h, pars):
@@ -363,81 +354,6 @@ def improved_euler_step(f, tk, yk, h, pars):
 	f1 = f(tk + h, yk + h*f0, *pars) # calculates f1 using fuctions
 	yk1 = yk + h*(f0*0.5 + f1*0.5) # calculates the new y value
 	return yk1
-
-def MSPE_A():
-	'''
-	Using MSPE as metric for brute-force calculating coefficients of the pressure ODE.
-	Parameters : 
-	------------
-	None
-	Returns : 
-	---------
-	A : float
-		Best parameter one for ODE model
-	B : float
-		Best parameter two for ODE model
-	C : float
-		Best parameter three for ODE model
-	Generates plots of various ODE models, best ODE model, and MSPE wrt. A    
-	
-	'''
-
-	# Experimental Data, defining testing range for coefficient, constants
-	time, Pressure ,netFlow = getPressureData()
-	A = np.linspace(0.001,0.0015,50)
-	# A = 9.81/(0.15*A)
-	B = np.linspace(0.08,0.11,50)
-	C = np.linspace(0.002,0.006,50)
-	dt = 0.5
-	MSPE_best = float('inf')
-	best_A = 1000
-	best_B = 1000
-	best_C = 1000
-
-
-	# Modelling ODE for each combination of A,B,C
-	for A_i,B_i,C_i in itertools.product(A,B,C):
-		pars = [netFlow,A_i,B_i,C_i,1]
-		sol_time, sol_pressure = solve_Pressure_ode(pressure_model, time[0], time[-1], dt , Pressure[0], pars)
-
-		# Interpolating for comparison of MSE
-		f = interp1d(sol_time,sol_pressure)
-		analytic_pressure = f(time)
-		diff_array = np.subtract(analytic_pressure,Pressure)
-		squared_array = np.square(diff_array)
-		MSPE = squared_array.mean()
-
-		print(A_i)
-
-		if (MSPE < MSPE_best):
-			MSPE_best = MSPE
-			best_A = A_i
-			best_B = B_i
-			best_C = C_i
-
-
-	
-	# Plotting best fit ODE
-	pars = [netFlow,best_A,best_B,best_C,1]
-	sol_time, sol_pressure = solve_Pressure_ode(pressure_model, time[0], time[-1], dt , Pressure[0], pars)
-
-	# Printout of results
-	txt = "Best coefficient {} is {}"
-	print(txt.format("A",best_A))
-	print(txt.format("B",best_B))
-	print(txt.format("C",best_C))
-	print("Mean Squared Error is {}".format(MSPE_best))
-
-	
-	f, ax2 = plt.subplots(1, 1)
-	ax2.plot(sol_time,sol_pressure, 'b', label = 'ODE')
-	ax2.plot(time,Pressure, 'r', label = 'DATA')
-	ax2.set_title("Best fit A coefficient")
-	ax2.legend()
-	plt.show()
-		
-
-	return best_A,best_B,best_C
 
 def Uncertainty():
     global a,b,c,d,M0
@@ -557,9 +473,65 @@ def Uncertainty():
     plt.hist(barc, bins = 'auto')
     plt.axvline(five , color = 'r', linestyle = '--')
     plt.axvline(ninefive , color = 'r', linestyle = '--')
+    plt.title("CO2 Concentration Histogram at 2050")
+    plt.ylabel("Count")
+    plt.xlabel("CO2 Concentration [wt %]")
     plt.show()
 
     return
 
+def MSPE_A():
+    time = tp
+    Pressure = pp
+    netFLow = net
+    A = np.linspace(0.001,0.0015,75)
+    B = np.linspace(0.08,0.11,75)
+    C = np.linspace(0.002,0.006,75)
+    dt = 0.5
+    MSPE_best = float('inf')
+    best_A = 1000
+    best_B = 1000
+    best_C = 1000
+    time_range = np.arange(time[0], time[-1], dt)
+
+	# Modelling ODE for each combination of A,B,C
+    for A_i,B_i,C_i in itertools.product(A,B,C):
+        pars = [A_i,B_i,C_i]
+        sol_pressure = SolvePressureODE(time_range, *pars)
+
+		# Interpolating for comparison of MSE
+        f = interp1d(time_range,sol_pressure)
+        analytic_pressure = f(time_range)
+        diff_array = np.subtract(analytic_pressure,sol_pressure)
+        squared_array = np.square(diff_array)
+        MSPE = squared_array.mean()
+        if (MSPE < MSPE_best):
+            MSPE_best = MSPE
+            best_A = A_i
+            best_B = B_i
+            best_C = C_i
+
+
+	
+	# Plotting best fit ODE
+    pars = [best_A,best_B,best_C]
+    sol_pressure = SolvePressureODE(time_range, *pars)
+
+	# Printout of results
+    txt = "Best coefficient {} is {}"
+    print(txt.format("A",best_A))
+    print(txt.format("B",best_B))
+    print(txt.format("C",best_C))
+    print("Mean Squared Error is {}".format(MSPE_best))
+    f, ax2 = plt.subplots(1, 1)
+    ax2.plot(time_range,sol_pressure, 'b', label = 'ODE')
+    ax2.plot(time,Pressure, 'r', label = 'DATA')
+    ax2.set_title("Best Initial Guess for Parameters")
+    ax2.legend()
+    plt.show()
+    return best_A,best_B,best_C
+
 if __name__ == "__main__":
-	 main()
+    global a,b,c
+    a,b,c = MSPE_A()
+    main()
