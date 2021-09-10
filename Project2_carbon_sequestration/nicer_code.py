@@ -673,7 +673,7 @@ def PressureModel(t, Pk, a, b, c):
         dqdti = 0
         q = net
 
-    return -a*q - b*(Pk-pp[0]) - c*dqdti
+    return -a*q - b*(Pk-pp[0]) - c*dqdti # calculates dPdt
 
 def improved_euler_step(f, tk, yk, h, pars):
 	""" Compute a single Improved Euler step.
@@ -702,12 +702,31 @@ def improved_euler_step(f, tk, yk, h, pars):
 	return yk1
 
 def Uncertainty():
+    # sets up global variables
     global a,b,c,d,M0
     global net, injec
+    # initialises net array again
     net = np.append(q[0:33],(q[33::]-qc[33::]))
+    # initliasing parameters
     pressure_pars = [a,b,c]
     solute_pars = [d,M0]
+    # initlialising arrays to store the results
     pressures0 = []
+    pressures1 = []
+    pressures2 = []
+    pressures3 = []
+    pressures4 = []
+
+    psol = []
+
+    concs0 = []
+    concs1 = []
+    concs2 = []
+    concs3 = []
+    concs4 = []
+
+    csol = []
+
     last1 = []
     last2 = []
     last3 = []
@@ -718,25 +737,19 @@ def Uncertainty():
     last8 = []
     last9 = []
     last10 = []
-    pressures1 = []
-    pressures2 = []
-    pressures3 = []
-    pressures4 = []
-    psol = []
-    concs0 = []
-    concs1 = []
-    concs2 = []
-    concs3 = []
-    concs4 = []
-    csol = []
+    # sets random seed so everyones results are the same
     np.random.seed(seed = 111592442)
-    p_pars = np.random.multivariate_normal(pressure_pars, pressurecov, 375)
+    # getting random distribution of parameters using covariance matrix generated earlier
+    p_pars = np.random.multivariate_normal(pressure_pars, pressurecov, 500)
+    c_pars = np.random.multivariate_normal(solute_pars, solutecov, 500)
+    # stakeholder based multipliers
     flows = [0,0.5,1,2,4]
-    c_pars = np.random.multivariate_normal(solute_pars, solutecov, 375)
     global prediction
     global P_SOL
     global C_SOL
     ogPSOL = P_SOL
+    # this follows same process as the extrapolation
+    # goes through all random parameter values generated and produces different extrapolations
     for pprams in p_pars:
         a = pprams[0]
         b = pprams[1]
@@ -768,7 +781,7 @@ def Uncertainty():
         press = SolvePressureODE(prediction, *[a,b,c])
         pressures4.append(press)
         last5.append(press[-1])
-
+    # sets a, b, c back to normal values for solute ODE
     a, b, c = pressure_pars
     P_SOL = ogPSOL
     for ccprams in c_pars:
@@ -799,6 +812,7 @@ def Uncertainty():
         last10.append(solu[-1])
         concs4.append(solu)
 
+    # plots the results
     f, ax  = plt.subplots(1,1)
     for i in range(len(pressures0)):
         ax.plot(time_fit, psol[i], color = 'k', alpha = 0.1, lw = 0.5)
@@ -807,22 +821,22 @@ def Uncertainty():
         ax.plot(prediction, pressures2[i], color = 'g', alpha = 0.1, lw = 0.4)
         ax.plot(prediction, pressures3[i], color = 'y', alpha = 0.1, lw = 0.4)
         ax.plot(prediction, pressures4[i], color = 'c', alpha = 0.1, lw = 0.4)
+    # adds information to the legend 
     ax.plot([],[], color = 'k', label = 'Model Ensemble')
     ax.plot([],[], color = 'r', label = 'Injection = ' + str(flows[1]*qc[-1]) + ' kg/s')
     ax.plot([],[], color = 'b', label = 'Injection = ' + str(flows[2]*qc[-1]) + ' kg/s')
     ax.plot([],[], color = 'g', label = 'Injection = ' + str(flows[3]*qc[-1]) + ' kg/s')
     ax.plot([],[], color = 'y', label = 'Injection = ' + str(flows[4]*qc[-1]) + ' kg/s')
     ax.plot([],[], color = 'c', label = 'Injection = 0 kg/s')
-
+    # adding information 
     ax.plot(tp, pp, 'r.', label = 'Observations')
     ax.set_xlabel("Time [years]")
     ax.axhline(pp[0], color = 'orange', linestyle = '--', label = 'Ambient Value')
-
     ax.set_ylabel("Pressure [MPa]")
-    
     ax.set_title("Pressure Flow in Ohaaki")
     ax.legend()
     plt.show()
+    # plotting results
     f, ax  = plt.subplots(1,1)
     for i in range(len(concs0)):
         ax.plot(time_fit, csol[i], color = 'k', alpha = 0.1, lw = 0.5)
@@ -831,6 +845,7 @@ def Uncertainty():
         ax.plot(prediction, concs2[i], color = 'g', alpha = 0.1, lw = 0.4)
         ax.plot(prediction, concs3[i], color = 'y', alpha = 0.1, lw = 0.4)
         ax.plot(prediction, concs4[i], color = 'c', alpha = 0.1, lw = 0.4)
+    # adding legend labels
     ax.plot([],[], color = 'k', label = 'Model Ensemble')
     ax.plot([],[], color = 'r', label = 'Injection = ' + str(flows[1]*qc[-1]) + ' kg/s')
     ax.plot([],[], color = 'b', label = 'Injection = ' + str(flows[2]*qc[-1]) + ' kg/s')
@@ -845,7 +860,8 @@ def Uncertainty():
     ax.axhline(0.1, color = 'orange', linestyle = '--', label = "Corrosive Point")
     ax.legend()
     plt.show()
-    
+    # performing confidence interval calculations
+    # using 2.5 and 97.5 percentile creates 95% confidence interval
     five = np.percentile(last9,2.5)
     ninefive = np.percentile(last9,97.5)
     plt.hist(last9, bins = 'auto')
