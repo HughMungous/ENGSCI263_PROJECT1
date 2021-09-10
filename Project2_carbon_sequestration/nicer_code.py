@@ -358,14 +358,14 @@ def Extrapolate(t):
 
 def SolvePressureODE(t, *pars):
     global step
-    if (extrapolation is False):
+    if not extrapolation:
         ys = 0.*tp
         ys[0] = pp[0]
         for k in range(len(tp)- 1):
             step = tp[k+1] - tp[k]
             ys[k+1] = improved_euler_step(PressureModel, tp[k], ys[k], tp[k+1] - tp[k], pars)
         return np.interp(t, tp, ys)
-    if extrapolation is True:
+    else:
         ys = 0.*prediction
         ys[0] = P_SOL[-1]
         for k in range(len(prediction)- 1):
@@ -375,7 +375,7 @@ def SolvePressureODE(t, *pars):
 
 def SolveSoluteODE(t, *pars):
     global k, step
-    if extrapolation is False:
+    if not extrapolation:
         ys = 0.*tcc
         ys[0] = cc[0]
         for k in range(len(tcc)- 1):
