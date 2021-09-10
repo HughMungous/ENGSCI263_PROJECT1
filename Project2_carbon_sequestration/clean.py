@@ -73,17 +73,33 @@ DONE:
 7. plot
 8. Uncertainty (posterior paramater distribution)
 9. Misfit
+10. Benchmark
 
 TODO:
 
-10. Benchmark
 11. Uncertainty (confidence intervals)
 12. confint on prediction???
 13. comments & docstrings
 """
 
 def getMeasurementData(interpolated: bool):
-	"""Reads in data from the interpolated csv
+	"""Reads in data from either the interpolated CSV or the original files
+
+		Parameters:
+		----------
+		interpolated : bool
+			which data set to use, the interpolated one matches the most frequent data (half yearly)
+
+		Returns:
+		--------
+		originalData: Dict[Union[List[float],List[float]]]
+			A dictionary with keys: "pressure"; "production"; "injection"; "concentration".
+			The timespace and corresponding measurements are stored as the zeroth and first
+			values for each key.
+
+		Notes:
+		------
+		The function only returns originalData when interpolated == False
 	"""
 	if interpolated:
 		global time, pressure, injection, CO2_conc, basePressure, net, dqdt, finalProduction
@@ -135,7 +151,24 @@ def getMeasurementData(interpolated: bool):
 	return originalData
 
 def interpolate(dtNew: float)->None:
-	"""Function to interpolate the data """
+	"""Function to interpolate all of the data for some new timestep.
+	
+		Parameters:
+		-----------
+		dtNew : float
+			the new timestep
+
+		Returns:
+		--------
+		None :
+			This function alters specific global variables
+
+		Notes:
+		------
+		It is assumed that a call togetMeasurementData(True) is made
+		prior to any call of this function, as the data to interpolate
+		will not be properly instantiated and the outcome is undefined.
+	"""
 	global time, dt, pressure, injection, CO2_conc, net, dqdt
 	# creating a temporary timespace defined by the new dt
 	
@@ -214,7 +247,24 @@ def solve(t: List[float], a: float, b: float, c: float, d: float, M0: float, fun
 	pass
 
 def optimise(calibrationPoint = -1)->None:
-	"""This function optimises all of the parameters"""
+	"""This function optimises all of the parameters for both models simultaneously.
+	
+		Parameters:
+		-----------
+		calibrationPoint: Optional, int
+			Only the data prior to this index will be used to optimise the paramters
+
+		Returns:
+		--------
+		None:
+			global variables are adjusted
+
+		Notes:
+		------
+		It is assumed that a call togetMeasurementData(True) is made
+		prior to any call of this function, as the outcome is undefined 
+		otherwise.
+	"""
 	global a, b, c, d, baseMass, covariance
 	# global a, b, c, covariance
 	nt = len(time[:calibrationPoint])
@@ -399,7 +449,7 @@ def main(interpoRate: float, calibrationPoint: int, nPars: int = 3, nPredicts: i
 		f1, ax1 = plt.subplots(1,1)
 		f2, ax2 = plt.subplots(1,1)
 		
-		for i in range(n):
+		for i in range(nPredicts):
 			ax1.plot(time, pPos[i], "b")
 			ax2.plot(time, sPos[i], "b")
 			
@@ -507,4 +557,4 @@ def main(interpoRate: float, calibrationPoint: int, nPars: int = 3, nPredicts: i
 
 
 if __name__ == "__main__":
-	main(0.25, 2010, 3, plotting=[False,False,False,False,True])
+	main(0.25, 2010, 3, plotting=[True,True,True,True,True])
