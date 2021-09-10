@@ -112,7 +112,7 @@ def BenchMark():
 
     time = np.arange(0, 10, dt) # creates time array to solve over
 
-    global net, a, b, c # setting up parameters and global variables
+    global net # setting up parameters and global variables
     net = 4
     a = 1
     b = 2
@@ -230,7 +230,7 @@ def SoluteBenchmark(C0, qCO2, d, M0, time, dt):
     return ys, analytical # returning numerical and analytical solutions
 
 def PressureBenchmark(P0, a, b , c, q0, time, dt):
-    """ Solves Solute ODE analytically and numerically
+    """ Solves Pressure ODE analytically and numerically
 	
 		Parameters
 		----------
@@ -251,9 +251,9 @@ def PressureBenchmark(P0, a, b , c, q0, time, dt):
 		Returns
 		-------
 		ys   : np.array
-			Numerical Solution of the Solute ODE.
+			Numerical Solution of the Pressure ODE.
         analytical : np.array
-            Analytical Solution of the Solute ODE.
+            Analytical Solution of the Pressure ODE.
 	"""
     analytical = [] # initialising analytical array
     # solves the analytical solution at different time points
@@ -272,15 +272,31 @@ def PressureBenchmark(P0, a, b , c, q0, time, dt):
     return ys, analytical # retunrs numerical and analytical solutions
 
 def PlotMisfit():
+    """ Plots the misfit of the data
+	
+		Parameters
+		----------
+		None
+
+		Returns
+		-------
+		None
+
+	"""
+    # reads in the given data
     pressure_time = np.genfromtxt('data/cs_p.txt', skip_header = 1,delimiter = ',', usecols = 0)
     pressure = np.genfromtxt('data/cs_p.txt', skip_header = 1,delimiter = ',', usecols = 1)
-    P_Result = []
+
+    P_Result = [] # initialises the result array
+    # since solution is solved over different time period, need to get Pressure data at same points as pressure_time
     for i in range(len(pressure_time)):
         P_Result.append(np.interp(pressure_time[i], time_fit, P_SOL))
-    misfit_P = []
+
+    misfit_P = [] # initialises misfit array
+    # calculates the misfit for all the points
     for i in range(len(P_Result)):
         misfit_P.append(pressure[i] - P_Result[i])
-
+    # plots the misfit for the Presssure Solution
     f, ax = plt.subplots(1, 1)
     ax.plot(pressure_time,misfit_P, 'rx')
     ax.axhline(0, color = 'black', linestyle = '--')
@@ -289,15 +305,17 @@ def PlotMisfit():
     ax.set_title("Best Fit Pressure LPM Model")
     plt.show()
 
+    # reads in the relevant solute data
     solute_time = np.genfromtxt('data/cs_cc.txt', skip_header = 1, delimiter = ',', usecols = 0)
     solute = np.genfromtxt('data/cs_cc.txt', skip_header = 1, delimiter = ',', usecols = 1)
+    # performs the same process as the pressure data
     C_Result = []
     for i in range(len(solute_time)):
         C_Result.append(np.interp(solute_time[i], time_fit, C_SOL))
     misfit_C = []
     for i in range(len(C_Result)):
         misfit_C.append(solute[i] - C_Result[i])
-
+    # graphs the misfit for solute ODE
     f, ax = plt.subplots(1, 1)
     ax.plot(solute_time,misfit_C, 'rx')
     ax.axhline(0, color = 'black', linestyle = '--')
@@ -307,53 +325,75 @@ def PlotMisfit():
     return
     
 def Model_Fit():
-    global time_fit, Pressure, a, b, c
-    time_fit = np.arange(tp[0], tp[-1], dt)
-    pars = [a,b,c]
+    """ Gets the best fit for both models using curve_fit function 
+    
+		Parameters
+		----------
+		None
+
+		Returns
+		-------
+		None
+
+	"""
+    global time_fit, a, b, c # setting up values for parameters
+
+    time_fit = np.arange(tp[0], tp[-1], dt) # time range to solve over
+
+    pars = [a,b,c] # parameters for Pressure ODE
+
     global pressurecov
+    # first output is the optimal parameters of Pressure ODE
+    # second output is the covariance matrix, saved as a global variable to use for uncertainty
     bestfit_pars, pressurecov = curve_fit(SolvePressureODE, tp, pp, pars)
     
-    global P_SOL
+    global P_SOL # sets up solved pressure values
     a = bestfit_pars[0]
     b = bestfit_pars[1]
     c = bestfit_pars[2]
+    # prints the best values for the Pressure ODE
     print("Best parameters found : \na = " + str(a) + "\n" + "b = " + str(b) + "\n" + "c = " + str(c))
-    P_SOL = SolvePressureODE(time_fit, *bestfit_pars)
-    
+
+    P_SOL = SolvePressureODE(time_fit, *bestfit_pars) # solves the Pressure ODE using new parameters
+    # plotting the data vs the solution found
     f, ax = plt.subplots(1, 1)
     ax.plot(time_fit,P_SOL, 'b', label = 'ODE')
     ax.plot(tp,pp, 'r.', label = 'DATA')
-    plt.axvline(tp[34], color = 'black', linestyle = '--', label = 'Calibration point')
+    #plt.axvline(tp[34], color = 'black', linestyle = '--', label = 'Calibration point')
     ax.set_xlabel("Time [years]")
     ax.set_ylabel("Pressure [MPa]")
     ax.legend()
     ax.set_title("Pressure flow in the Ohaaki geothermal field")
     plt.show()
-
+    # initial guess for d and M0
     pars = [0.1, 999999999999]
     global solutecov
+    # same process as the pressure curve_fit
     bestfit_pars, solutecov = curve_fit(SolveSoluteODE, tcc, cc, pars)
 
-    global d, M0, C_SOL
+    global d, M0, C_SOL # sets up global variables
     d = bestfit_pars[0]
     M0 = bestfit_pars[1]
-    print("d = " + str(d) + "\n" + "M0 = " + str(M0) + "\n")
 
-    C_SOL = SolveSoluteODE(time_fit, *bestfit_pars)
+    print("d = " + str(d) + "\n" + "M0 = " + str(M0) + "\n") # prints the best variables for d and M0
+
+    C_SOL = SolveSoluteODE(time_fit, *bestfit_pars) # solves with new d and M0 parameters
+    # plots the solved solute values compared to the data
     f, ax = plt.subplots(1, 1)
     ax.plot(time_fit,C_SOL, 'b', label = 'ODE')
     ax.plot(tcc,cc, 'r.', label = 'DATA')
-    plt.axvline(tcc[15], color = 'black', linestyle = '--', label = 'Calibration point')
+    #plt.axvline(tcc[15], color = 'black', linestyle = '--', label = 'Calibration point')
     ax.set_xlabel("Time [years]")
     ax.set_ylabel("CO2 Concentration [wt %]")
     ax.legend()
     ax.set_title("CO2 concentration in the Ohaaki geothermal field.")
     plt.show()
-    pars = [a,b]
+
+    pars = [a,b] # qloss needs a and b as parameter values
     global Q_SOL
-
-    Q_SOL = SolveQLoss(time_fit, *pars)
-
+    # can't use curve fit as no data is given for qloss
+    Q_SOL = SolveQLoss(time_fit, *pars) # solves the qloss over the time range
+    # plots qloss over time
     f, ax = plt.subplots(1, 1)
     ax.plot(time_fit,Q_SOL, 'b', label = 'ODE')
     ax.set_xlabel("Time [years]")
@@ -569,6 +609,7 @@ def Uncertainty():
     concs3 = []
     concs4 = []
     csol = []
+    np.random.seed(seed = 111592442)
     p_pars = np.random.multivariate_normal(pressure_pars, pressurecov, 375)
     flows = [0,0.5,1,2,4]
     c_pars = np.random.multivariate_normal(solute_pars, solutecov, 375)
