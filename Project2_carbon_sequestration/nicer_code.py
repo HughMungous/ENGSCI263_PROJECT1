@@ -27,7 +27,7 @@ d = 0
 M0 = 0
 extraPressure = []
 k = 0
-dt = 1
+dt = 0.4
 C_SOL = []
 
 def main():
@@ -206,9 +206,6 @@ def PlotMisfit():
 def Model_Fit():
     global time_fit, Pressure, a, b, c
     time_fit = np.arange(tp[0], tp[-1], dt)
-    a = 0.001
-    b = 0.08
-    c = 0.002
     pars = [a,b,c]
     global pressurecov
     bestfit_pars, pressurecov = curve_fit(SolvePressureODE, tp, pp, pars)
@@ -227,7 +224,7 @@ def Model_Fit():
     ax.set_xlabel("Time [years]")
     ax.set_ylabel("Pressure [MPa]")
     ax.legend()
-    ax.set_title("Pressure flow in the Ohaaki geothermal field. With c parameter.")
+    ax.set_title("Pressure flow in the Ohaaki geothermal field")
     plt.show()
 
     pars = [0.01,1000]
@@ -259,7 +256,7 @@ def Model_Fit():
     ax.set_xlabel("Time [years]")
     ax.set_ylabel("CO2 lost [kg]")
     ax.legend()
-    ax.set_title("CO2 LOST.")
+    ax.set_title("CO2 Lost from Reservoir")
     plt.show()
     return
 
@@ -301,8 +298,8 @@ def Extrapolate(t):
     global prediction
     prediction = np.arange(tp[-1],t, dt)
     
-    stakeholder = [0.5,1,2,4]
-    colours = ['r','b','y','k']
+    stakeholder = [0,0.5,1,2,4]
+    colours = ['g', 'r','b','y','k']
 
     global extrapolation
     extrapolation = True
@@ -329,6 +326,8 @@ def Extrapolate(t):
         ax3.plot(np.append(time_fit, prediction), np.append(Q_SOL, qloss), colours[i], label = 'Prediction' + ' for ' + str(injec) + ' kg/s')
 
     ax.axvline(2002, color = 'black', linestyle = '--', label = 'Calibration point')
+    ax.axhline(pp[0], color = 'cyan', linestyle = '--', label = 'Ambient Value')
+
     ax2.axvline(2002, color = 'black', linestyle = '--', label = 'Calibration point')
     ax2.axhline(.1, color = 'cyan', linestyle = '--', label = 'Corrosive Point')
 
@@ -450,18 +449,30 @@ def Uncertainty():
     pressure_pars = [a,b,c]
     solute_pars = [d,M0]
     pressures0 = []
+    last1 = []
+    last2 = []
+    last3 = []
+    last4 = []
+    last5 = []
+    last6 = []
+    last7 = []
+    last8 = []
+    last9 = []
+    last10 = []
     pressures1 = []
     pressures2 = []
     pressures3 = []
+    pressures4 = []
     psol = []
     concs0 = []
     concs1 = []
     concs2 = []
     concs3 = []
+    concs4 = []
     csol = []
-    p_pars = np.random.multivariate_normal(pressure_pars, pressurecov, 250)
-    flows = [0.5,1,2,4]
-    c_pars = np.random.multivariate_normal(solute_pars, solutecov, 250)
+    p_pars = np.random.multivariate_normal(pressure_pars, pressurecov, 375)
+    flows = [0,0.5,1,2,4]
+    c_pars = np.random.multivariate_normal(solute_pars, solutecov, 375)
     global prediction
     global P_SOL
     global C_SOL
@@ -477,18 +488,26 @@ def Uncertainty():
         psol.append(P_SOL)
         global extraploation
         extrapolation = True
-        net = q[-1] - flows[0]*qc[-1]
-        press = SolvePressureODE(prediction, *[a,b,c])
-        pressures0.append(press)
         net = q[-1] - flows[1]*qc[-1]
         press = SolvePressureODE(prediction, *[a,b,c])
-        pressures1.append(press)
+        pressures0.append(press)
+        last1.append(press[-1])
         net = q[-1] - flows[2]*qc[-1]
         press = SolvePressureODE(prediction, *[a,b,c])
-        pressures2.append(press)
+        pressures1.append(press)
+        last2.append(press[-1])
         net = q[-1] - flows[3]*qc[-1]
         press = SolvePressureODE(prediction, *[a,b,c])
+        pressures2.append(press)
+        last3.append(press[-1])
+        net = q[-1] - flows[4]*qc[-1]
+        press = SolvePressureODE(prediction, *[a,b,c])
         pressures3.append(press)
+        last4.append(press[-1])
+        net = q[-1]
+        press = SolvePressureODE(prediction, *[a,b,c])
+        pressures4.append(press)
+        last5.append(press[-1])
 
     a, b, c = pressure_pars
     P_SOL = ogPSOL
@@ -499,18 +518,26 @@ def Uncertainty():
         C_SOL = SolveSoluteODE(time_fit, *[d,M0])
         csol.append(C_SOL)
         extrapolation = True
-        injec = flows[0]*qc[-1]
-        solu = SolveSoluteODE(prediction, *[d,M0])
-        concs0.append(solu)
         injec = flows[1]*qc[-1]
         solu = SolveSoluteODE(prediction, *[d,M0])
-        concs1.append(solu)
+        concs0.append(solu)
+        last6.append(solu[-1])
         injec = flows[2]*qc[-1]
         solu = SolveSoluteODE(prediction, *[d,M0])
-        concs2.append(solu)
+        concs1.append(solu)
+        last7.append(solu[-1])
         injec = flows[3]*qc[-1]
         solu = SolveSoluteODE(prediction, *[d,M0])
+        concs2.append(solu)
+        last8.append(solu[-1])
+        injec = flows[4]*qc[-1]
+        solu = SolveSoluteODE(prediction, *[d,M0])
+        last9.append(solu[-1])
         concs3.append(solu)
+        injec = 0
+        solu = SolveSoluteODE(prediction, *[d,M0])
+        last10.append(solu[-1])
+        concs4.append(solu)
 
     f, ax  = plt.subplots(1,1)
     for i in range(len(pressures0)):
@@ -519,13 +546,20 @@ def Uncertainty():
         ax.plot(prediction, pressures1[i], color = 'b', alpha = 0.1, lw = 0.4)
         ax.plot(prediction, pressures2[i], color = 'g', alpha = 0.1, lw = 0.4)
         ax.plot(prediction, pressures3[i], color = 'y', alpha = 0.1, lw = 0.4)
-    ax.plot([],[], color = 'r', label = 'Injection = ' + str(flows[0]*qc[-1]) + ' kg/s')
-    ax.plot([],[], color = 'b', label = 'Injection = ' + str(flows[1]*qc[-1]) + ' kg/s')
-    ax.plot([],[], color = 'g', label = 'Injection = ' + str(flows[2]*qc[-1]) + ' kg/s')
-    ax.plot([],[], color = 'y', label = 'Injection = ' + str(flows[3]*qc[-1]) + ' kg/s')
+        ax.plot(prediction, pressures4[i], color = 'c', alpha = 0.1, lw = 0.4)
+    ax.plot([],[], color = 'k', label = 'Model Ensemble')
+    ax.plot([],[], color = 'r', label = 'Injection = ' + str(flows[1]*qc[-1]) + ' kg/s')
+    ax.plot([],[], color = 'b', label = 'Injection = ' + str(flows[2]*qc[-1]) + ' kg/s')
+    ax.plot([],[], color = 'g', label = 'Injection = ' + str(flows[3]*qc[-1]) + ' kg/s')
+    ax.plot([],[], color = 'y', label = 'Injection = ' + str(flows[4]*qc[-1]) + ' kg/s')
+    ax.plot([],[], color = 'c', label = 'Injection = 0 kg/s')
+
     ax.plot(tp, pp, 'r.', label = 'Observations')
     ax.set_xlabel("Time [years]")
+    ax.axhline(pp[0], color = 'orange', linestyle = '--', label = 'Ambient Value')
+
     ax.set_ylabel("Pressure [MPa]")
+    
     ax.set_title("Pressure Flow in Ohaaki")
     ax.legend()
     plt.show()
@@ -536,41 +570,72 @@ def Uncertainty():
         ax.plot(prediction, concs1[i], color = 'b', alpha = 0.1, lw = 0.4)
         ax.plot(prediction, concs2[i], color = 'g', alpha = 0.1, lw = 0.4)
         ax.plot(prediction, concs3[i], color = 'y', alpha = 0.1, lw = 0.4)
-    ax.plot([],[], color = 'r', label = 'Injection = ' + str(flows[0]*qc[-1]) + ' kg/s')
-    ax.plot([],[], color = 'b', label = 'Injection = ' + str(flows[1]*qc[-1]) + ' kg/s')
-    ax.plot([],[], color = 'g', label = 'Injection = ' + str(flows[2]*qc[-1]) + ' kg/s')
-    ax.plot([],[], color = 'y', label = 'Injection = ' + str(flows[3]*qc[-1]) + ' kg/s')
+        ax.plot(prediction, concs4[i], color = 'c', alpha = 0.1, lw = 0.4)
+    ax.plot([],[], color = 'k', label = 'Model Ensemble')
+    ax.plot([],[], color = 'r', label = 'Injection = ' + str(flows[1]*qc[-1]) + ' kg/s')
+    ax.plot([],[], color = 'b', label = 'Injection = ' + str(flows[2]*qc[-1]) + ' kg/s')
+    ax.plot([],[], color = 'g', label = 'Injection = ' + str(flows[3]*qc[-1]) + ' kg/s')
+    ax.plot([],[], color = 'y', label = 'Injection = ' + str(flows[4]*qc[-1]) + ' kg/s')
+    ax.plot([],[], color = 'c', label = 'Injection = 0 kg/s')
+
     ax.plot(tcc, cc, 'r.', label = 'Observations')
     ax.set_xlabel("Time [years]")
     ax.set_ylabel("CO2 Concentration [wt %]")
     ax.set_title("Concentration of CO2 in Ohaaki")
-    ax.axhline(0.1, color = 'r', linestyle = '--', label = "Corrosive Point")
+    ax.axhline(0.1, color = 'orange', linestyle = '--', label = "Corrosive Point")
     ax.legend()
     plt.show()
-
-    barp = []
-    barc = []
-    for i in range(len(concs0)):
-        barp.append(pressures3[i][-1])
-        barc.append(concs3[i][-1])
     
-    five = np.percentile(barc,2.5)
-    ninefive = np.percentile(barc,97.5)
-
-    plt.hist(barc, bins = 'auto')
+    five = np.percentile(last9,2.5)
+    ninefive = np.percentile(last9,97.5)
+    plt.hist(last9, bins = 'auto')
     plt.axvline(five , color = 'r', linestyle = '--')
     plt.axvline(ninefive , color = 'r', linestyle = '--')
     plt.title("CO2 Concentration Histogram at 2050")
     plt.ylabel("Count")
     plt.xlabel("CO2 Concentration [wt %]")
     plt.show()
+    print("Concentration Confidence Interval for quadruple Injection = [ "+ str(five) + ", " + str(ninefive) + "] \n")
+    five = np.percentile(last6,2.5)
+    ninefive = np.percentile(last6,97.5)
+    print("Concentration Confidence Interval for half Injection = [ "+ str(five) + ", " + str(ninefive) + "] \n")
+    five = np.percentile(last7,2.5)
+    ninefive = np.percentile(last7,97.5)
+    print("Concentration Confidence Interval for same Injection = [ "+ str(five) + ", " + str(ninefive) + "] \n")
+    five = np.percentile(last8,2.5)
+    ninefive = np.percentile(last8,97.5)
+    print("Concentration Confidence Interval for two times Injection = [ "+ str(five) + ", " + str(ninefive) + "] \n")
+    five = np.percentile(last10,2.5)
+    ninefive = np.percentile(last10,97.5)
+    print("Concentration Confidence Interval for no Injection = [ "+ str(five) + ", " + str(ninefive) + "] \n")
 
+    five = np.percentile(last4,2.5)
+    ninefive = np.percentile(last4,97.5)
+    plt.hist(last4, bins = 'auto')
+    plt.axvline(five , color = 'r', linestyle = '--')
+    plt.axvline(ninefive , color = 'r', linestyle = '--')
+    plt.title("Pressure Histogram at 2050")
+    plt.ylabel("Count")
+    plt.xlabel("Pressure [MPa]")
+    plt.show()
+    print("Pressure Confidence Interval for quadruple Injection = [ "+ str(five) + ", " + str(ninefive) + "] \n")
+    five = np.percentile(last1,2.5)
+    ninefive = np.percentile(last1,97.5)
+    print("Pressure Confidence Interval for half Injection = [ "+ str(five) + ", " + str(ninefive) +"] \n")
+    five = np.percentile(last2,2.5)
+    ninefive = np.percentile(last2,97.5)
+    print("Pressure Confidence Interval for same Injection = [ "+ str(five) + ", " + str(ninefive) + "] \n")
+    five = np.percentile(last3,2.5)
+    ninefive = np.percentile(last3,97.5)
+    print("Pressure Confidence Interval for two times Injection = [ "+ str(five) + ", " + str(ninefive) +"] \n")
+    five = np.percentile(last5,2.5)
+    ninefive = np.percentile(last5,97.5)
+    print("Pressure Confidence Interval for no Injection = [ "+ str(five) + ", " + str(ninefive) + "] \n")
     return
 
 def MSE():
     time = tp
     Pressure = pp
-    netFLow = net
     A = np.linspace(0.001,0.0015,15)
     B = np.linspace(0.08,0.11,15)
     C = np.linspace(0.002,0.006,15)
@@ -611,14 +676,14 @@ def MSE():
     print(txt.format("C",best_C))
     print("Mean Squared Error is {}".format(MSPE_best))
     f, ax2 = plt.subplots(1, 1)
-    ax2.plot(time_range,sol_pressure, 'b', label = 'ODE')
+    ax2.plot(time_range,sol_pressure, 'b', label = 'a = ' + str(best_A) + '\n' + 'b = ' + str(best_B) + '\n' + 'c = ' + str(best_C))
     ax2.plot(time,Pressure, 'r', label = 'DATA')
-    ax2.set_title("Best Initial Guess for Parameters")
+    ax2.set_title("Best Initial Guess for Parameters. Mean Squared Error = " + str(MSPE_best))
     ax2.legend()
     plt.show()
     return best_A,best_B,best_C
 
 if __name__ == "__main__":
-    #global a,b,c
-    #a,b,c = MSPE_A()
+    global a,b,c
+    a,b,c = MSE()
     main()
