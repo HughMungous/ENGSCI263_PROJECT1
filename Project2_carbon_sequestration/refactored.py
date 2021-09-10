@@ -506,9 +506,9 @@ class SoluteModel:
 		if P > self.basePressure:
 			cPrime = C
 			# the loss due to a higher than baseline pressure during the space between  injection periods
-			qLoss = (b / a) * (P - self.basePressure) * cPrime * self.dt	
+			#qLoss = (b / a) * (P - self.basePressure) * cPrime * self.dt	
 		
-		qCO2 -= qLoss
+		#qCO2 -= qLoss
 
 		# return ((1 - C) * (qCO2 / self.baseMass)) - ((b / (a * self.baseMass)) * (P - self.basePressure) * (cPrime - C)) - (d * (C - self.baseConcentration))
 		return ((1 - C) * (qCO2 / M0)) - ((b / (a * M0)) * (P - self.basePressure) * (cPrime - C)) - (d * (C - self.baseConcentration))
