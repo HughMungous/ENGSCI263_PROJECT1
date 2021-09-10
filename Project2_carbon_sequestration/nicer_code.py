@@ -575,49 +575,98 @@ def SolvePressureODE(t, *pars):
         ys = 0.*tp
         ys[0] = pp[0] # sets inital value of pressure
         for k in range(len(tp)- 1):
-            step = tp[k+1] - tp[k]
+            step = tp[k+1] - tp[k] # chaning time step because some data has variable measurements
             ys[k+1] = improved_euler_step(PressureModel, tp[k], ys[k], tp[k+1] - tp[k], pars)
-        return np.interp(t, tp, ys)
+        return np.interp(t, tp, ys) # returns interpolated data
     else:
         ys = 0.*prediction
-        ys[0] = P_SOL[-1]
+        ys[0] = P_SOL[-1] # if extrapolating the first point is the last point of the data
         for k in range(len(prediction)- 1):
             step = prediction[k+1] - prediction[k]
             ys[k+1] = improved_euler_step(PressureModel, prediction[k], ys[k], prediction[k+1] - prediction[k], pars)
-        return ys
+        return ys # returns pressure values
 
 def SolveSoluteODE(t, *pars):
-    global k, step
+    """ Solves Solute ODE using Improved Euler Method
+
+		Parameters
+		----------
+		t     : np.array
+            time range to solve over
+        *pars : np.array
+            usually contains parameters d, M0
+		Returns
+		-------
+		np.array
+            solute values which correlate to t array 
+	"""
+    global k, step # k helps to pick out extrapolated pressure values
+    # follows same processa as SolvePressureODE
     if not extrapolation:
         ys = 0.*tcc
         ys[0] = cc[0]
         for k in range(len(tcc)- 1):
-            step = tp[k+1] - tp[k]
+            step = tp[k+1] - tp[k] # varying time step
             ys[k+1] = improved_euler_step(SoluteModel, tcc[k], ys[k], tcc[k+1] - tcc[k], pars)
+        return np.interp(t, tcc, ys) # returns interpolated data
     else:
         ys = 0.*prediction
-        ys[0] = C_SOL[-1]
+        ys[0] = C_SOL[-1] # if extrapolating then first value is last value 
         for k in range(len(prediction)- 1):
             step = prediction[k+1] - prediction[k]
             ys[k+1] = improved_euler_step(SoluteModel, prediction[k], ys[k], prediction[k+1] - prediction[k], pars)
-        return ys
-    return np.interp(t, tcc, ys)
+        return ys # returns solved data
 
 def SoluteModel(t, conc, d, M0):
-    
-    if not extrapolation:
+    """ Solves Solute ODE using Improved Euler Method
+
+		Parameters
+		----------
+		t     : float
+            time to solve ODE with, independent variable (year)
+        conc  : float
+            dependent variable, concentration at time t (wt %)
+        d     : float
+            strength parameter of CO2 reaction
+        M0    : float
+            parameter which is initial mass of the reservoir
+		Returns
+		------
+        float
+            dCdt at time point t
+	"""
+    if not extrapolation: # gets relevant qCO2 values and pressure values depending on extrapolating or not
         qCO2 = np.interp(t, tq, qc)
         pressure = np.interp(t, time_fit, P_SOL)
     else:
         qCO2 = injec
         pressure = extraPressure[k]
     
-    C1 = conc if pressure > pp[0] else cc[0]
+    C1 = conc if pressure > pp[0] else cc[0] # gets correct C' value
 
     return (((1 - conc)*qCO2)/ M0) - (b/(a * M0))*(pressure - pp[0])*(C1 - conc) - d*(conc - cc[0])
 
 def PressureModel(t, Pk, a, b, c):
-    if not extrapolation:
+    """ Solves Pressure ODE using Improved Euler Method
+
+		Parameters
+		----------
+		t     : float
+            time to solve ODE with, independent variable (year)
+        Pk  : float
+            dependent variable, pressure at time t (MPa)
+        a     : float
+            strength parameter of net flow
+        b    : float
+            strength parameter of recharge
+        c    : float
+            strength parameter of slow drainage
+		Returns
+		------
+        float
+            dPdt at time point t
+	"""
+    if not extrapolation: # gets correct values for q and dqdt
         q = np.interp(t, tq, net)
         dqdti = np.interp(t, tq, dqdt)
     else:
