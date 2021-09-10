@@ -149,7 +149,7 @@ def interpolate(dtNew: float)->None:
 	dt 		= dtNew
 	return
 
-def solve(t: List[float], a: float, b: float, c: float, d: float, M0: float, func: str, extrapolate = None)->List[float]:
+def solve(t: List[float], a: float, b: float, c: float, d: float, M0: float, func: str, extraP: List[float] = [], extrapolate = None)->List[float]:
 	"""Function to solve a model..."""
 	nt = len(t)
 	result = 0.*t
@@ -188,7 +188,7 @@ def solve(t: List[float], a: float, b: float, c: float, d: float, M0: float, fun
 			result[0] = analyticalSolute[-1]
 
 			for k in range(nt-1):	
-				params[2] = extrapolatedPressure[extrapolationIndices.index(extrapolate)][k]			
+				params[2] = extraP[k]			
 				result[k+1] = improved_euler_step(soluteModel, t[k], result[k], dt, params)
 			
 			return result
@@ -209,20 +209,24 @@ def solve(t: List[float], a: float, b: float, c: float, d: float, M0: float, fun
 def optimise()->None:
 	"""This function optimises all of the parameters"""
 	global a, b, c, d, baseMass, covariance
+	# global a, b, c, covariance
 	nt = len(time)
 
 	def subFunc(t: List[float], ta: float, tb: float, tc: float, td: float, tM0: float)->List[float]:
 		pressureSolution = solve(t[:nt], ta, tb, tc, td, tM0, "pressure")
 		soluteSolution = solve(t[nt:], ta, tb, tc, td, tM0, "solute")
 		return np.append(pressureSolution, soluteSolution)
+	# def subFunc(t: List[float], ta: float, tb: float, tc: float)->List[float]:
+	# 	pressureSolution = solve(t[:nt], ta, tb, tc, d, baseMass, "pressure")
+	# 	soluteSolution = solve(t[nt:], ta, tb, tc, d, baseMass, "solute")
+	# 	return np.append(pressureSolution, soluteSolution)
 	
 
-	pars, cov = curve_fit(subFunc, np.append(time, time), np.append(pressure, CO2_conc), [a, b, c, d, baseMass], method="lm")
+	pars, covariance = curve_fit(subFunc, np.append(time, time), np.append(pressure, CO2_conc), [a, b, c, d, baseMass], method="lm")
+	# pars, covariance = curve_fit(subFunc, np.append(time, time), np.append(pressure, CO2_conc), [a, b, c], method="lm")
 
-	
 	a, b, c, d, baseMass = pars
-	covariance = cov
-	
+	# a, b, c = pars
 	return
 
 def extrapolate(endPoint: float, proposedRates: List[float], pars: List[float], uncert = False):
@@ -239,28 +243,29 @@ def extrapolate(endPoint: float, proposedRates: List[float], pars: List[float], 
 
 		for rate in proposedRates:
 			extrapolatedPressure.append(solve(extrapolatedTimespace, *pars, "pressure", extrapolate=rate))
-			extrapolatedConcentration.append(solve(extrapolatedTimespace, *pars, "solute", extrapolate=rate))
+			extrapolatedConcentration.append(solve(extrapolatedTimespace, *pars, "solute", extraP = extrapolatedPressure[-1], extrapolate=rate))
 
 	pressureSol, concentrationSol = [], []
 
 	for rate in proposedRates:
 		pressureSol.append(solve(extrapolatedTimespace, *pars, "pressure", extrapolate=rate))
-		concentrationSol.append(solve(extrapolatedTimespace, *pars, "solute", extrapolate=rate))
+		concentrationSol.append(solve(extrapolatedTimespace, *pars, "solute", extraP= pressureSol[-1],extrapolate=rate))
 	
 	return pressureSol, concentrationSol
 
 def uncertainty(n: int):
-	pars = np.random.multivariate_normal([a, b, c, d, baseMass], covariance, n)
+	pars = np.random.multivariate_normal([a, b, c], [l[:3] for l in covariance[:3]], n)
+	# pars = np.random.default_rng().multivariate_normal([a, b, c], covariance, n, method="svd")
 
 	pressurePosterior, solutePosterior = [], []
 	pressurePosteriorExtrap = {rate: [] for rate in extrapolationIndices}
 	solutePosteriorExtrap = {rate: [] for rate in extrapolationIndices}
 
 	for par in pars:
-		pressurePosterior.append(solve(time, *par, "pressure"))
-		solutePosterior.append(solve(time, *par, "solute"))
+		pressurePosterior.append(solve(time, *par, d, baseMass, "pressure"))
+		solutePosterior.append(solve(time, *par, d, baseMass, "solute"))
 
-		temp = extrapolate(2050, extrapolationIndices, par, True)
+		temp = extrapolate(2050, extrapolationIndices, [*par, d, baseMass], True)
 
 		for i in range(len(extrapolationIndices)):
 			pressurePosteriorExtrap[extrapolationIndices[i]].append(temp[0][i])
@@ -274,16 +279,25 @@ def uncertainty(n: int):
 # ------------------------------------------
 
 def main():
+	colours = {
+		0: "c",
+		0.5:"m",
+		1: "b",
+		2: "y",
+		4: "k"
+	}
 	## original data
 	originalData = getMeasurementData(False)
 
-	# f, ax = plt.subplots(1,1)
-	# for k in temp:
-	# 	ax.plot(originalData[k][0], originalData[k][1], label = k)
+	plotting1 = False
+	if plotting1:
+		f, ax = plt.subplots(1,1)
+		for k in temp:
+			ax.plot(originalData[k][0], originalData[k][1], label = k)
 
-	# ax.legend()
-	# ax.set_title("Original data.")
-	# plt.show()
+		ax.legend()
+		ax.set_title("Original data.")
+		plt.show()
 
 	## part 2 - electric boogaloo
 	getMeasurementData(True)
@@ -297,58 +311,48 @@ def main():
 	## extrapolation
 	extrapolate(2050, [0,0.5,1,2,4], [a,b,c,d,baseMass])
 
-	# f, ax = plt.subplots(1,1)
-	# plt.subplots()
-	
-	# ax.plot(originalData["pressure"][0], originalData["pressure"][1], 'r.', label = "measurements")
-	# ax.plot(time, analyticalPressure, label = "analytical sol")
+	plotting2 = False
+	if plotting2:
+		f, ax = plt.subplots(1,1)
+		f1, ax2 = plt.subplots(1,1)
+		# plt.subplots()
+		
+		ax.plot(originalData["pressure"][0], originalData["pressure"][1], 'r.', label = "measurements")
+		ax.plot(time, analyticalPressure, "b", label = "analytical sol")
+		
+		ax2.plot(originalData["concentration"][0], originalData["concentration"][1], 'r.', label = "measurements")
+		ax2.plot(time, analyticalSolute, "b", label = "analytical sol")
 
-	# for i, x in enumerate(extrapolationIndices):
-	# 	ax.plot(extrapolatedTimespace, extrapolatedPressure[i], label = f"{x*injection[-1]} kg/s")
+		for i, x in enumerate(extrapolationIndices):
+			ax.plot(extrapolatedTimespace, extrapolatedPressure[i], colours[x], label = f"{x*injection[-1]} kg/s")
+			ax2.plot(extrapolatedTimespace, extrapolatedConcentration[i], colours[x], label = f"{x*injection[-1]} kg/s")
 
-	# ax.legend()
-	# ax.set_title("Pressure solution")
-	# plt.show()
+		ax.legend()
+		ax.set_title("Pressure solution")
 
-	# f, ax = plt.subplots(1,1)
-	# plt.subplots()
-	
-	# ax.plot(originalData["concentration"][0], originalData["concentration"][1], 'r.', label = "measurements")
-	# ax.plot(time, analyticalSolute, label = "analytical sol")
+		ax2.legend()
+		ax2.set_title("Solute solution")
+		
+		plt.show()
 
-	# for i, x in enumerate(extrapolationIndices):
-	# 	ax.plot(extrapolatedTimespace, extrapolatedConcentration[i], label = f"{x*injection[-1]} kg/s")
-
-	# ax.legend()
-	# ax.set_title("Solute solution")
-	# plt.show()
-	colours = {
-		0: "c",
-		0.5:"m",
-		1: "b",
-		2: "y",
-		4: "k"
-	}
-	n = 20
+	n = 50
 	pPos, sPos, pPosEx, sPosEx = uncertainty(n)
-	f1, ax = plt.subplots(1,1)
-	f2, ax2 = plt.subplots(1,1)
 
-	### IMPORTANT ###
-	# currently using the best case prediction for the pressure vals in the solute ode posterior
-	for i in range(n):
-		ax.plot(time, pPos[i], "b")
-		ax2.plot(time, sPos[i], "b")
+	plotting3 = True
+	if plotting3:
+		f1, ax = plt.subplots(1,1)
+		f2, ax2 = plt.subplots(1,1)
 		
-		for k in pPosEx:
-			ax.plot(extrapolatedTimespace, pPosEx[k][i], colours[k])
-			ax2.plot(extrapolatedTimespace, sPosEx[k][i], colours[k])
-
-	plt.show()
-		
+		for i in range(n):
+			ax.plot(time, pPos[i], "b")
+			ax2.plot(time, sPos[i], "b")
 			
+			for k in pPosEx:
+				ax.plot(extrapolatedTimespace, pPosEx[k][i], colours[k])
+				ax2.plot(extrapolatedTimespace, sPosEx[k][i], colours[k])
 
-
+		plt.show()
+		
 
 	# print(a,b,c,d,baseMass)
 	# print(covariance)
