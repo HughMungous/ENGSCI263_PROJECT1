@@ -71,9 +71,10 @@ DONE:
 5. plot new version
 6. extrapolate
 7. plot
+8. Uncertainty
 
 TODO:
-8. Uncertainty
+
 9. Missfit
 10. Benchmark
 """
@@ -256,7 +257,8 @@ def extrapolate(endPoint: float, proposedRates: List[float], pars: List[float], 
 	return pressureSol, concentrationSol
 
 def uncertainty(n: int, nPars: int):
-	pars = np.random.multivariate_normal([a, b, c, d, baseMass][:nPars], [l[:nPars] for l in covariance[:nPars]], n)
+	pars = np.random.default_rng().multivariate_normal([a, b, c, d, baseMass][:nPars], [l[:nPars] for l in covariance[:nPars]], n)
+	# pars2 = np.random.default_rng().multivariate_normal([a, b, c, d, baseMass][nPars:], [l[nPars:] for l in covariance[nPars:]], n)
 	# pars = np.random.default_rng().multivariate_normal([a, b, c], covariance, n, method="svd")
 
 	pressurePosterior, solutePosterior = [], []
@@ -264,16 +266,29 @@ def uncertainty(n: int, nPars: int):
 	solutePosteriorExtrap = {rate: [] for rate in extrapolationIndices}
 
 	for par in pars:
+	# for i in range(n):
 		pressurePosterior.append(solve(time, *par, *[a, b, c, d, baseMass][nPars:], "pressure"))
 		solutePosterior.append(solve(time, *par, *[a, b, c, d, baseMass][nPars:], "solute"))
-
+		# pressurePosterior.append(solve(time, *pars[i], *pars2[i], "pressure"))
+		# solutePosterior.append(solve(time, *pars[i], *pars2[i], "solute"))
+		
 		temp = extrapolate(2050, extrapolationIndices, [*par, *[a, b, c, d, baseMass][nPars:]], [pressurePosterior[-1][-1], solutePosterior[-1][-1]], True)
+		# temp = extrapolate(2050, extrapolationIndices, [*pars[i], *pars2[i]], [pressurePosterior[-1][-1], solutePosterior[-1][-1]], True)
 
-		for i in range(len(extrapolationIndices)):
-			pressurePosteriorExtrap[extrapolationIndices[i]].append(temp[0][i])
-			solutePosteriorExtrap[extrapolationIndices[i]].append(temp[1][i])
+		for j in range(len(extrapolationIndices)):
+			pressurePosteriorExtrap[extrapolationIndices[j]].append(temp[0][j])
+			solutePosteriorExtrap[extrapolationIndices[j]].append(temp[1][j])
 
 	return pressurePosterior, solutePosterior, pressurePosteriorExtrap, solutePosteriorExtrap
+
+def misfit(pressureTime: List[float], pressure: List[float], concentrationTime: List[float], concentration: List[float]):
+	pRes = interp(pressureTime, time, analyticalPressure)
+	cRes = interp(concentrationTime,time, analyticalSolute)
+	return np.array([pressure[i]-pRes[i] for i in range(len(pRes))]), np.array([concentration[i]-cRes[i] for i in range(len(cRes))]) 
+	
+
+def benchmark(t: List[float], newdt: float, ):
+	pass
 
 ## TESTING
 # ------------------------------------------
@@ -291,8 +306,8 @@ def main(interpoRate: float, calibrationPoint: int, nPars: int = 3):
 	## original data
 	originalData = getMeasurementData(False)
 
-	plotting1 = False
-	if plotting1:
+	plottingOriginal = False
+	if plottingOriginal:
 		f1, ax1a = plt.subplots(1,1)
 		f2, ax2a = plt.subplots(1,1)
 
@@ -330,7 +345,7 @@ def main(interpoRate: float, calibrationPoint: int, nPars: int = 3):
 	## extrapolation
 	extrapolate(2050, [0,0.5,1,2,4], [a,b,c,d,baseMass], [analyticalPressure[-1], analyticalSolute[-1]])
 
-	plotting2 = True
+	plotting2 = False
 	if plotting2:
 		f1, ax1 = plt.subplots(1,1)
 		f2, ax2 = plt.subplots(1,1)
@@ -357,7 +372,7 @@ def main(interpoRate: float, calibrationPoint: int, nPars: int = 3):
 	n = 50
 	pPos, sPos, pPosEx, sPosEx = uncertainty(n, nPars)
 
-	plotting3 = True
+	plotting3 = False
 	if plotting3:
 		f1, ax1 = plt.subplots(1,1)
 		f2, ax2 = plt.subplots(1,1)
@@ -373,12 +388,34 @@ def main(interpoRate: float, calibrationPoint: int, nPars: int = 3):
 		ax1.set_title("Pressure solution")
 		ax2.set_title("Solute solution")
 		plt.show()
+
+	
+	plotting4 = True	
+	if plotting4:
+		misfitPressure, misfitConcentration = misfit(*originalData["pressure"], *originalData["concentration"])
+
+		f1, ax1 = plt.subplots(1, 1)
+		f2, ax2 = plt.subplots(1, 1)
 		
+		ax1.plot(originalData["pressure"][0],misfitPressure, 'rx')
+		ax1.axhline(0, color = 'black', linestyle = '--')
+		ax1.set_ylabel('Pressure [MPa]')
+		ax1.set_xlabel('Time [years]')
+		ax1.set_title("Best Fit Pressure LPM Model")
+
+		ax2.plot(originalData["concentration"][0],misfitConcentration, 'rx')
+		ax2.axhline(0, color = 'black', linestyle = '--')
+		ax2.set_ylabel('CO2 [wt %]')
+		ax2.set_title("Best Fit Solute LPM Model")
+
+		plt.show()
 
 	# print(a,b,c,d,baseMass)
-	# print(covariance)
+	# print(covariance[3][3:])
+	# print(covariance[4][3:])
+	# print(np.random.multivariate_normal([d, baseMass], [covariance[3][3:],covariance[4][3:]], n))
 	return
 
 
 if __name__ == "__main__":
-	main(0.25, 2004, 3)
+	main(0.25, 2010, 3)
