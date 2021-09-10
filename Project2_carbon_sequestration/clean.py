@@ -63,6 +63,7 @@ extrapolatedConcentration 	= []
 extrapolationIndices 		= [] 
 
 """
+DONE:
 1. read data
 2. interpolate
 3. plot naive version
@@ -70,7 +71,11 @@ extrapolationIndices 		= []
 5. plot new version
 6. extrapolate
 7. plot
-8. 
+
+TODO:
+8. Uncertainty
+9. Missfit
+10. Benchmark
 """
 
 def getMeasurementData(interpolated: bool):
@@ -220,24 +225,48 @@ def optimise()->None:
 	
 	return
 
-def extrapolate(endPoint: float, proposedRates: List[float])->None:
+def extrapolate(endPoint: float, proposedRates: List[float], pars: List[float], uncert = False):
 	"""	
 	This function creates projections for each of the provided rates from the endpoint
 	of the analytical solution to the declared endpoint for the projection.
 	
 	"""
-	global extrapolatedTimespace, extrapolatedPressure, extrapolatedConcentration, extrapolationIndices
-	
-	extrapolationIndices = proposedRates
-	extrapolatedTimespace = np.arange(time[-1],endPoint + dt, dt)
+	if not uncert:
+		global extrapolatedTimespace, extrapolationIndices, extrapolatedPressure, extrapolatedConcentration
+
+		extrapolationIndices = proposedRates
+		extrapolatedTimespace = np.arange(time[-1],endPoint + dt, dt)
+
+		for rate in proposedRates:
+			extrapolatedPressure.append(solve(extrapolatedTimespace, *pars, "pressure", extrapolate=rate))
+			extrapolatedConcentration.append(solve(extrapolatedTimespace, *pars, "solute", extrapolate=rate))
+
+	pressureSol, concentrationSol = [], []
 
 	for rate in proposedRates:
-		extrapolatedPressure.append(solve(extrapolatedTimespace, a, b, c, d, baseMass, "pressure", extrapolate=rate))
-		extrapolatedConcentration.append(solve(extrapolatedTimespace, a, b, c, d, baseMass, "solute", extrapolate=rate))
+		pressureSol.append(solve(extrapolatedTimespace, *pars, "pressure", extrapolate=rate))
+		concentrationSol.append(solve(extrapolatedTimespace, *pars, "solute", extrapolate=rate))
 	
-	return
+	return pressureSol, concentrationSol
 
+def uncertainty(n: int):
+	pars = np.random.multivariate_normal([a, b, c, d, baseMass], covariance, n)
 
+	pressurePosterior, solutePosterior = [], []
+	pressurePosteriorExtrap = {rate: [] for rate in extrapolationIndices}
+	solutePosteriorExtrap = {rate: [] for rate in extrapolationIndices}
+
+	for par in pars:
+		pressurePosterior.append(solve(time, *par, "pressure"))
+		solutePosterior.append(solve(time, *par, "solute"))
+
+		temp = extrapolate(2050, extrapolationIndices, par, True)
+
+		for i in range(len(extrapolationIndices)):
+			pressurePosteriorExtrap[extrapolationIndices[i]].append(temp[0][i])
+			solutePosteriorExtrap[extrapolationIndices[i]].append(temp[1][i])
+
+	return pressurePosterior, solutePosterior, pressurePosteriorExtrap, solutePosteriorExtrap
 
 ## TESTING
 # ------------------------------------------
@@ -265,35 +294,59 @@ def main():
 	analyticalPressure = solve(time, a, b, c, d, baseMass, "pressure")
 	analyticalSolute = solve(time, a, b, c, d, baseMass, "solute")
 
-	extrapolate(2050, [0,0.5,1,2,4])
+	## extrapolation
+	extrapolate(2050, [0,0.5,1,2,4], [a,b,c,d,baseMass])
 
-	f, ax = plt.subplots(1,1)
-	plt.subplots()
+	# f, ax = plt.subplots(1,1)
+	# plt.subplots()
 	
-	ax.plot(originalData["pressure"][0], originalData["pressure"][1], 'r.', label = "measurements")
-	ax.plot(time, analyticalPressure, label = "analytical sol")
+	# ax.plot(originalData["pressure"][0], originalData["pressure"][1], 'r.', label = "measurements")
+	# ax.plot(time, analyticalPressure, label = "analytical sol")
 
-	for i, x in enumerate(extrapolationIndices):
-		ax.plot(extrapolatedTimespace, extrapolatedPressure[i], label = f"{x*injection[-1]} kg/s")
+	# for i, x in enumerate(extrapolationIndices):
+	# 	ax.plot(extrapolatedTimespace, extrapolatedPressure[i], label = f"{x*injection[-1]} kg/s")
 
-	ax.legend()
-	ax.set_title("Pressure solution")
+	# ax.legend()
+	# ax.set_title("Pressure solution")
+	# plt.show()
+
+	# f, ax = plt.subplots(1,1)
+	# plt.subplots()
+	
+	# ax.plot(originalData["concentration"][0], originalData["concentration"][1], 'r.', label = "measurements")
+	# ax.plot(time, analyticalSolute, label = "analytical sol")
+
+	# for i, x in enumerate(extrapolationIndices):
+	# 	ax.plot(extrapolatedTimespace, extrapolatedConcentration[i], label = f"{x*injection[-1]} kg/s")
+
+	# ax.legend()
+	# ax.set_title("Solute solution")
+	# plt.show()
+	colours = {
+		0: "c",
+		0.5:"m",
+		1: "b",
+		2: "y",
+		4: "k"
+	}
+	n = 20
+	pPos, sPos, pPosEx, sPosEx = uncertainty(n)
+	f1, ax = plt.subplots(1,1)
+	f2, ax2 = plt.subplots(1,1)
+
+	### IMPORTANT ###
+	# currently using the best case prediction for the pressure vals in the solute ode posterior
+	for i in range(n):
+		ax.plot(time, pPos[i], "b")
+		ax2.plot(time, sPos[i], "b")
+		
+		for k in pPosEx:
+			ax.plot(extrapolatedTimespace, pPosEx[k][i], colours[k])
+			ax2.plot(extrapolatedTimespace, sPosEx[k][i], colours[k])
+
 	plt.show()
-
-	f, ax = plt.subplots(1,1)
-	plt.subplots()
-	
-	ax.plot(originalData["concentration"][0], originalData["concentration"][1], 'r.', label = "measurements")
-	ax.plot(time, analyticalSolute, label = "analytical sol")
-
-	for i, x in enumerate(extrapolationIndices):
-		ax.plot(extrapolatedTimespace, extrapolatedConcentration[i], label = f"{x*injection[-1]} kg/s")
-
-	ax.legend()
-	ax.set_title("Solute solution")
-	plt.show()
-
-	
+		
+			
 
 
 
