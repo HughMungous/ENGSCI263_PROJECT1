@@ -5,37 +5,70 @@ from numpy.lib.function_base import interp
 from scipy.interpolate import interp1d
 import itertools
 from scipy.optimize import curve_fit
-import statistics
 
+# getting the data from the files suplied
 tp, pp = np.genfromtxt('data/cs_p.txt', delimiter = ',', skip_header=1).T
 tqc, qc = np.genfromtxt('data/cs_c.txt', delimiter = ',', skip_header=1).T
 tq, q = np.genfromtxt('data/cs_q.txt', delimiter = ',', skip_header=1).T
 tcc, cc = np.genfromtxt('data/cs_cc.txt', delimiter = ',', skip_header=1).T
 
-net = np.append(q[0:33],(q[33::]-qc))
-dqdt = net*0.
-dqdt[0] = (net[1] - net[0])/(tq[1] - tq[0])
-dqdt[-1] = (net[-1] - net[-2])/(tq[-1] - tq[-2])
-dqdt[1:-1] = (net[2:] - net[:-2])/(tq[2:] - tq[:-2])
-qc = np.append(np.zeros(33), qc)
 
+net = np.append(q[0:33],(q[33::]-qc)) # creating net flow array
+dqdt = net*0. # initialising dqdt array
+dqdt[0] = (net[1] - net[0])/(tq[1] - tq[0]) # forwards differnce
+dqdt[-1] = (net[-1] - net[-2])/(tq[-1] - tq[-2]) # backwards differences
+dqdt[1:-1] = (net[2:] - net[:-2])/(tq[2:] - tq[:-2]) # central difference
+
+qc = np.append(np.zeros(33), qc) # making sure qc is same length as net array
+
+# initialising global variables
 P_SOL = []
+C_SOL = []
 extrapolation = False
-other_extrapolation = False
-method = False
 d = 0
 M0 = 0
 extraPressure = []
 k = 0
 dt = 0.4
-C_SOL = []
+
 
 def main():
+
+    PlotOriginal() # plotting the original data
+
+    global a,b,c
+    a,b,c = MSE() # getting initial model fit 
+
+    Model_Fit() # fitting the model 
+
+    Extrapolate(2050) # extrapolating data into the future
+
+    PlotMisfit() # getting the misfit plots
+
+    BenchMark() # plotting the benchmarks for both ODEs
+
+    Uncertainty() # performing uncertainty analysis
+
+    return
+
+def PlotOriginal():
+    """ Plots the given data before any changes are made
+	
+		Parameters
+		----------
+		None
+			
+		Returns
+		-------
+		None
+	"""
+    # reading in the data
     tm, CO2_inj = np.genfromtxt('data/cs_c.txt',delimiter=',',skip_header=1).T
     tq, CO2_perc = np.genfromtxt('data/cs_cc.txt',delimiter=',',skip_header=1).T
     ty, pres = np.genfromtxt('data/cs_p.txt',delimiter=',',skip_header=1).T
     tz, prod = np.genfromtxt('data/cs_q.txt',delimiter=',',skip_header=1).T
-    f,ax1 = plt.subplots(nrows=1,ncols=1)
+    # plotting the data
+    f, ax1 = plt.subplots(nrows=1,ncols=1)
     ax2 = ax1.twinx()
     ax1.plot(tm, CO2_inj, 'b-', label= 'CO2 Injection')
     ax1.plot(tz, prod, 'r-', label= 'Extraction')
@@ -47,6 +80,7 @@ def main():
     ax1.set_xlabel('time [yr]')
     ax2.set_title('Extraction and Injection rates with CO2 Concentration at Ohaaki')
     plt.show()
+
     f,ax1 = plt.subplots(nrows=1,ncols=1)
     ax2 = ax1.twinx()
     ax1.plot(tm, CO2_inj, 'b-', label= 'CO2 Injection')
@@ -59,32 +93,36 @@ def main():
     ax1.set_xlabel('time [yr]')
     ax2.set_title('Extraction and Injection rates with Pressure Change at Ohaaki')        
     plt.show()
-
-    Model_Fit()
-
-    Extrapolate(2050)
-
-    PlotMisfit()
-
-    BenchMark()
-
-    Uncertainty()
     return
 
 
 
 def BenchMark():
-    dt = 0.1
-    time = np.arange(0, 10, dt)
-    global net
+    """ Plotting the benchmark solution for both ODE. This includes an instability plot.
+	
+		Parameters
+		----------
+		None
+			
+		Returns
+		-------
+		None
+	"""
+    dt = 0.1 # sets up time step
+
+    time = np.arange(0, 10, dt) # creates time array to solve over
+
+    global net, a, b, c # setting up parameters and global variables
     net = 4
     a = 1
     b = 2
     c = 0
     q0 = 4
-    ys, analytical = PressureBenchmark(pp[0], a, b, c, q0, time, dt)
-    steady_state = pp[0] - (a*q0)/b
-    f, ax = plt.subplots(1, 1)
+    # benchmarking for Pressure ODE
+    ys, analytical = PressureBenchmark(pp[0], a, b, c, q0, time, dt) # getting benchmark solution for analytical and numerical solution
+    steady_state = pp[0] - (a*q0)/b # getting the steady state value
+
+    f, ax = plt.subplots(1, 1) # plotting numerical vs analytical solutions
     ax.plot(time,analytical, 'b', label = 'Analytical')
     ax.plot(time, ys, 'kx', label = 'Numerical')
     ax.set_xlabel("Time [seconds]")
@@ -93,10 +131,12 @@ def BenchMark():
     ax.legend()
     ax.set_title("Analytical vs Numerical Solution Benchmark for Pressure ODE")
     plt.show()
-    dt = 1.1
+
+    dt = 1.1 # changing time step for instability analysis
     time = np.arange(0,10, dt)
-    ys, analytical = PressureBenchmark(pp[0], 1, 2, 0, 4, time, dt)
-    f, ax = plt.subplots(1, 1)
+    ys, analytical = PressureBenchmark(pp[0], 1, 2, 0, 4, time, dt) # getting benchmark solutions
+
+    f, ax = plt.subplots(1, 1) # plotting numerical vs analytical solutions
     ax.plot(time,analytical, 'b', label = 'Analytical')
     ax.plot(time,ys, 'kx', label = 'Numerical')
     ax.set_xlabel("Time [seconds]")
@@ -105,17 +145,24 @@ def BenchMark():
     ax.legend()
     ax.set_title("Instability at a large time step for Pressure ODE")
     plt.show()
-    dt = 0.25
+    
+    # Benchmarking for Solute ODE
+    dt = 0.25 # performing same process as above except for Solute ODE
+
     time = np.arange(0, 10, dt)
-    global injec
+
+    global injec # setting up parameters and global variables necessary
     injec = 1
     a = 1
     b = 2
     d = 3
     M0 = 1
-    ys, analytical = SoluteBenchmark(cc[0], injec, a, b, d, M0, time, dt)
-    steady_state = ((injec/M0) + d*cc[0])/((injec/M0) + d)
-    f, ax = plt.subplots(1, 1)
+
+    ys, analytical = SoluteBenchmark(cc[0], injec, d, M0, time, dt) # getting numerical and analytical results
+
+    steady_state = ((injec/M0) + d*cc[0])/((injec/M0) + d) # getting steady state equation
+
+    f, ax = plt.subplots(1, 1) # plotting analytical vs numerical results
     ax.plot(time,analytical, 'b', label = 'Analytical')
     ax.plot(time, ys, 'kx', label = 'Numerical')
     ax.axhline(steady_state, linestyle = '--', color = 'red', label = 'steady state')
@@ -124,9 +171,11 @@ def BenchMark():
     ax.legend()
     ax.set_title("Analytical vs Numerical Solution Benchmark for Solute ODE")
     plt.show()
+    # performing instability analysis
     dt = 1.1
     time = np.arange(0,10, dt)
-    ys, analytical = SoluteBenchmark(cc[0], injec, a, b, d, M0, time, dt)
+    ys, analytical = SoluteBenchmark(cc[0], injec, d, M0, time, dt)
+
     f, ax = plt.subplots(1, 1)
     ax.plot(time,analytical, 'b', label = 'Analytical')
     ax.plot(time,ys, 'kx', label = 'Numerical')
@@ -136,37 +185,91 @@ def BenchMark():
     ax.legend()
     ax.set_title("Instability at a large time step for Solute ODE")
     plt.show()
+
     return
 
-def SoluteBenchmark(C0, qCO2, a, b, d, M0, time, dt):
-    analytical = []
+def SoluteBenchmark(C0, qCO2, d, M0, time, dt):
+    """ Solves Solute ODE analytically and numerically
+	
+		Parameters
+		----------
+		C0   : flota
+			Initial CO2 concentration of the reservoir (wt %)
+	    qCO2 : float
+			Injection rate of CO2 into the reservoir (kg/s)
+		d    : float
+			Parameter strength of CO2 reaction
+		M0   : float
+			Initial mass of the reservoir (kg)
+		time : np.array
+			Time range to be solved over
+        dt   : float
+			Step size.
+		Returns
+		-------
+		ys   : np.array
+			Numerical Solution of the Solute ODE.
+        analytical : np.array
+            Analytical Solution of the Solute ODE.
+	"""
+    analytical = [] # initialsiing the analytical array
+    # calculating the analytical solution at differnt time steps
     for i in range(len(time)):
         k = qCO2/M0
         L = (k*C0 - k)/(k + d)
         anaC = (k + (d * C0))/(k + d) + L/(np.exp(k*time[i]+d*time[i]))
         analytical.append(anaC)
+    # solving the Solute ODE numerically using improved euler
     nt = int(np.ceil((time[-1]-time[0])/dt))
     ts = time[0]+np.arange(nt+1)*dt
-    ys = ts*0.
+    ys = ts*0. # initialising the solution array
     ys[0] = cc[0]
-    pars = [d,M0]
+    pars = [d,M0] # parameters used by the Solute ODE
     for i in range(nt):
-        ys[i+1] = improved_euler_step(SoluteModel, ts[i], ys[i], dt, pars)
-    return ys, analytical
+        ys[i+1] = improved_euler_step(SoluteModel, ts[i], ys[i], dt, pars) # performing improved euler solution
+    return ys, analytical # returning numerical and analytical solutions
 
 def PressureBenchmark(P0, a, b , c, q0, time, dt):
-    analytical = []
+    """ Solves Solute ODE analytically and numerically
+	
+		Parameters
+		----------
+		P0   : float
+			Initial Pressure of the reservoir (MPa)
+	    a : float
+	    	Parameter strength of injection/extraction 
+		b    : float
+			Parameter strength of recharge
+		c    : float
+			Parameter strength of slow drainage
+		q0   : float
+			Net extraction/injection rate
+        time : np.array
+			Time range to solve over
+        dt   : float
+            Step size.
+		Returns
+		-------
+		ys   : np.array
+			Numerical Solution of the Solute ODE.
+        analytical : np.array
+            Analytical Solution of the Solute ODE.
+	"""
+    analytical = [] # initialising analytical array
+    # solves the analytical solution at different time points
     for i in range(len(time)):
         P = P0 + ((-a*q0)/b)*(1-np.exp(-b*time[i]))
         analytical.append(P)
+    # finds the numerical solution to the ODE
     nt = int(np.ceil((time[-1]-time[0])/dt))
     ts = time[0]+np.arange(nt+1)*dt
     ys = ts*0.
-    ys[0] = P0
-    pars = [a,b,c]
+    ys[0] = P0 # sets initial value of the solution
+    pars = [a,b,c] # parameters to pass into the model
+    # solves ODE using improved euler method 
     for i in range(nt):
         ys[i+1] = improved_euler_step(PressureModel, ts[i], ys[i], dt, pars)
-    return ys, analytical
+    return ys, analytical # retunrs numerical and analytical solutions
 
 def PlotMisfit():
     pressure_time = np.genfromtxt('data/cs_p.txt', skip_header = 1,delimiter = ',', usecols = 0)
@@ -680,6 +783,4 @@ def MSE():
     return best_A,best_B,best_C
 
 if __name__ == "__main__":
-    global a,b,c
-    a,b,c = MSE()
     main()
