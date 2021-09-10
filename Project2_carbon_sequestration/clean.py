@@ -71,9 +71,10 @@ DONE:
 5. plot new version
 6. extrapolate
 7. plot
+8. Uncertainty
 
 TODO:
-8. Uncertainty
+
 9. Missfit
 10. Benchmark
 """
@@ -157,6 +158,7 @@ def solve(t: List[float], a: float, b: float, c: float, d: float, M0: float, fun
 	if func == "pressure":
 		result[0] = basePressure
 		params = [basePressure, 0, 0, a, b, c]
+
 		if extrapolate != None:
 			# assuming that the production stays constant - need to verify
 			params[1] = finalProduction - extrapolate*injection[-1]
@@ -195,13 +197,13 @@ def solve(t: List[float], a: float, b: float, c: float, d: float, M0: float, fun
 			
 			return result
 
-
 		for k in range(nt-1):
 			params[2] = pressure[k]
 			params[4] = injection[k]
 			result[k+1] = improved_euler_step(soluteModel, t[k], result[k], dt, params)
 
 		return result
+
 	else:
 		raise("implementation for qLoss missing")
 		pass
@@ -256,7 +258,8 @@ def extrapolate(endPoint: float, proposedRates: List[float], pars: List[float], 
 	return pressureSol, concentrationSol
 
 def uncertainty(n: int, nPars: int):
-	pars = np.random.multivariate_normal([a, b, c, d, baseMass][:nPars], [l[:nPars] for l in covariance[:nPars]], n)
+	pars = np.random.default_rng().multivariate_normal([a, b, c, d, baseMass][:nPars], [l[:nPars] for l in covariance[:nPars]], n)
+	# pars2 = np.random.default_rng().multivariate_normal([a, b, c, d, baseMass][nPars:], [l[nPars:] for l in covariance[nPars:]], n)
 	# pars = np.random.default_rng().multivariate_normal([a, b, c], covariance, n, method="svd")
 
 	pressurePosterior, solutePosterior = [], []
@@ -264,23 +267,36 @@ def uncertainty(n: int, nPars: int):
 	solutePosteriorExtrap = {rate: [] for rate in extrapolationIndices}
 
 	for par in pars:
+	# for i in range(n):
 		pressurePosterior.append(solve(time, *par, *[a, b, c, d, baseMass][nPars:], "pressure"))
 		solutePosterior.append(solve(time, *par, *[a, b, c, d, baseMass][nPars:], "solute"))
-
+		# pressurePosterior.append(solve(time, *pars[i], *pars2[i], "pressure"))
+		# solutePosterior.append(solve(time, *pars[i], *pars2[i], "solute"))
+		
 		temp = extrapolate(2050, extrapolationIndices, [*par, *[a, b, c, d, baseMass][nPars:]], [pressurePosterior[-1][-1], solutePosterior[-1][-1]], True)
+		# temp = extrapolate(2050, extrapolationIndices, [*pars[i], *pars2[i]], [pressurePosterior[-1][-1], solutePosterior[-1][-1]], True)
 
-		for i in range(len(extrapolationIndices)):
-			pressurePosteriorExtrap[extrapolationIndices[i]].append(temp[0][i])
-			solutePosteriorExtrap[extrapolationIndices[i]].append(temp[1][i])
+		for j in range(len(extrapolationIndices)):
+			pressurePosteriorExtrap[extrapolationIndices[j]].append(temp[0][j])
+			solutePosteriorExtrap[extrapolationIndices[j]].append(temp[1][j])
 
 	return pressurePosterior, solutePosterior, pressurePosteriorExtrap, solutePosteriorExtrap
+
+def misfit(pressureTime: List[float], pressure: List[float], concentrationTime: List[float], concentration: List[float]):
+	pRes = interp(pressureTime, time, analyticalPressure)
+	cRes = interp(concentrationTime,time, analyticalSolute)
+	return np.array([pressure[i]-pRes[i] for i in range(len(pRes))]), np.array([concentration[i]-cRes[i] for i in range(len(cRes))]) 
+	
+
+def benchmark(t: List[float], newdt: float):
+	pass
 
 ## TESTING
 # ------------------------------------------
 # 
 # ------------------------------------------
 
-def main(interpoRate: float, calibrationPoint: int, nPars: int = 3):
+def main(interpoRate: float, calibrationPoint: int, nPars: int = 3, nPredicts: int = 50, plotting: List[bool] = [False]*5):
 	colours = {
 		0: "c",
 		0.5:"m",
@@ -291,8 +307,7 @@ def main(interpoRate: float, calibrationPoint: int, nPars: int = 3):
 	## original data
 	originalData = getMeasurementData(False)
 
-	plotting1 = False
-	if plotting1:
+	if plotting[0]:
 		f1, ax1a = plt.subplots(1,1)
 		f2, ax2a = plt.subplots(1,1)
 
@@ -330,8 +345,7 @@ def main(interpoRate: float, calibrationPoint: int, nPars: int = 3):
 	## extrapolation
 	extrapolate(2050, [0,0.5,1,2,4], [a,b,c,d,baseMass], [analyticalPressure[-1], analyticalSolute[-1]])
 
-	plotting2 = True
-	if plotting2:
+	if plotting[1]:
 		f1, ax1 = plt.subplots(1,1)
 		f2, ax2 = plt.subplots(1,1)
 		# plt.subplots()
@@ -354,11 +368,9 @@ def main(interpoRate: float, calibrationPoint: int, nPars: int = 3):
 		
 		plt.show()
 
-	n = 50
-	pPos, sPos, pPosEx, sPosEx = uncertainty(n, nPars)
+	if plotting[2]:
+		pPos, sPos, pPosEx, sPosEx = uncertainty(nPredicts, nPars)
 
-	plotting3 = True
-	if plotting3:
 		f1, ax1 = plt.subplots(1,1)
 		f2, ax2 = plt.subplots(1,1)
 		
@@ -372,13 +384,36 @@ def main(interpoRate: float, calibrationPoint: int, nPars: int = 3):
 
 		ax1.set_title("Pressure solution")
 		ax2.set_title("Solute solution")
-		plt.show()
-		
 
+		plt.show()
+
+	if plotting[3]:
+		misfitPressure, misfitConcentration = misfit(*originalData["pressure"], *originalData["concentration"])
+
+		f1, ax1 = plt.subplots(1, 1)
+		f2, ax2 = plt.subplots(1, 1)
+		
+		ax1.plot(originalData["pressure"][0],misfitPressure, 'rx')
+		ax1.axhline(0, color = 'black', linestyle = '--')
+		ax1.set_ylabel('Pressure [MPa]')
+		ax1.set_xlabel('Time [years]')
+		ax1.set_title("Best Fit Pressure LPM Model")
+
+		ax2.plot(originalData["concentration"][0],misfitConcentration, 'rx')
+		ax2.axhline(0, color = 'black', linestyle = '--')
+		ax2.set_ylabel('CO2 [wt %]')
+		ax2.set_title("Best Fit Solute LPM Model")
+
+		plt.show()
+	
+	if plotting[4]:
+		pass
 	# print(a,b,c,d,baseMass)
-	# print(covariance)
+	# print(covariance[3][3:])
+	# print(covariance[4][3:])
+	# print(np.random.multivariate_normal([d, baseMass], [covariance[3][3:],covariance[4][3:]], n))
 	return
 
 
 if __name__ == "__main__":
-	main(0.25, 2004, 3)
+	main(0.25, 2010, 3, plotting=[False,False,False,True,True])
