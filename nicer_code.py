@@ -255,20 +255,18 @@ def PressureBenchmark(P0, a, b , c, q0, time, dt):
         analytical : np.array
             Analytical Solution of the Pressure ODE.
 	"""
-    
-    # solves the analytical solution at different time points
+    # initialsiing the numerical and analytical arrays
+    ys, analytical = 0.*time, 0.*time
 
-    # finds the numerical solution to the ODE
-    ys, analytical = 0.*time, 0.*time # initialising analytical array
-
+    # setting initial values
     analytical[0] = P0 + ((-a*q0)/b)*(1-np.exp(-b*time[0]))
-    ys[0] = P0 # sets initial value of the solution
+    ys[0] = P0 
 
     pars = [a,b,c] # parameters to pass into the model
-    # solves ODE using improved euler method 
+    
     for i in range(len(time)-1):
-        analytical[i+1] = P0 + ((-a*q0)/b)*(1-np.exp(-b*time[i+1]))
-        ys[i+1] = improved_euler_step(PressureModel, time[i], ys[i], dt, pars)
+        analytical[i+1] = P0 + ((-a*q0)/b)*(1-np.exp(-b*time[i+1])) # solves the analytical solution at different time points
+        ys[i+1] = improved_euler_step(PressureModel, time[i], ys[i], dt, pars) # solves numerical ODE using improved euler method 
     return ys, analytical # retunrs numerical and analytical solutions
 
 def PlotMisfit():
