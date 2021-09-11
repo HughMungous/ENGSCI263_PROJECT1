@@ -29,7 +29,7 @@ d = 0
 M0 = 0
 extraPressure = []
 k = 0
-dt = 0.4
+dt = 0.15
 
 
 def main():
