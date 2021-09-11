@@ -48,7 +48,7 @@ def pressureModel(t: float, P: float, P0: float, q: float, dqdt: float, a: float
     """
     return -a*q - b*(P-P0) - c*dqdt
 
-def soluteModel(t: float, C: float, dt: float, C0: float, P: float, P0: float, q: float, M0: float, a: float, b: float, d: float)->float:
+def soluteModel(t: float, C: float, C0: float, P: float, P0: float, q: float, M0: float, a: float, b: float, d: float)->float:
     ''' Return the Solute derivative dC/dt at time, t, for given parameters.
 
         Parameters:
@@ -73,19 +73,12 @@ def soluteModel(t: float, C: float, dt: float, C0: float, P: float, P0: float, q
         dCdt : float
             Derivative of Pressure variable with respect to independent variable.
     '''
-    # q -= qLossModel(dt, C, P, P0, a, b)
-    
-    if P > P0:
-        # the equation simplifies in the case of P > P0
-        return ((1 - C) * (q / M0)) - (d * (C - C0))
+    CPrime = C0 if P <= P0 else C
 
-    return ((1 - C) * (q / M0)) - ((b / (a * M0)) * (P - P0) * (C0 - C)) - (d * (C - C0))
+    return ((1 - C) * (q / M0)) - ((b / (a * M0)) * (P - P0) * (CPrime - C)) - (d * (C - C0))
 
 def qLossModel(dt: float, C: float, P: float, P0: float, a: float, b: float)->float:
     """DOCSTRING NEEDED
     """
-    if P > P0:
-        return (b / a) * (P - P0) * C * dt
-
-    return 0
+    return (b / a) * (P - P0) * C * dt if P > P0 else 0
     
