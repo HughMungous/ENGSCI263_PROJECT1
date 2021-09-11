@@ -527,7 +527,7 @@ def Extrapolate(t):
         ax3.plot(np.append(time_fit, prediction), np.append(Q_SOL, qloss), colours[i], label = 'Prediction' + ' for ' + str(injec) + ' kg/s')
     
     # adding informative lines and labels
-    ax.axhline(pp[0], color = 'cyan', linestyle = '--', label = 'Ambient Value')
+    ax.axhline(pp[0], color = 'cyan', linestyle = '--', label = 'Initial Value')
     ax2.axhline(.1, color = 'cyan', linestyle = '--', label = 'Corrosive Point')
 
     ax.legend()
@@ -829,7 +829,7 @@ def Uncertainty():
     # adding information 
     ax.plot(tp, pp, 'r.', label = 'Observations')
     ax.set_xlabel("Time [years]")
-    ax.axhline(pp[0], color = 'orange', linestyle = '--', label = 'Ambient Value')
+    ax.axhline(pp[0], color = 'orange', linestyle = '--', label = 'Initial Value')
     ax.set_ylabel("Pressure [MPa]")
     ax.set_title("Pressure Flow in Ohaaki")
     ax.legend()
@@ -910,9 +910,9 @@ def Uncertainty():
 def MSE():
     time = tp
     Pressure = pp
-    A = np.linspace(0.001,0.01,10)
-    B = np.linspace(0.01,0.1,10)
-    C = np.linspace(0.001,0.01,10)
+    A = np.linspace(0.001,0.01,100)
+    B = np.linspace(0.01,0.1,100)
+    C = np.linspace(0.001,0.01,100)
     dt = 0.5
     MSPE_best = float('inf')
     best_A = 1000
