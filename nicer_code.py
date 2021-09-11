@@ -954,6 +954,27 @@ def MSE():
     ax2.set_title("Best Initial Guess for Parameters. Mean Squared Error = " + str(MSPE_best))
     ax2.legend()
     plt.show()
+
+    pressure_time = np.genfromtxt('data/cs_p.txt', skip_header = 1,delimiter = ',', usecols = 0)
+    pressure = np.genfromtxt('data/cs_p.txt', skip_header = 1,delimiter = ',', usecols = 1)
+
+    P_Result = [] # initialises the result array
+    # since solution is solved over different time period, need to get Pressure data at same points as pressure_time
+    for i in range(len(pressure_time)):
+        P_Result.append(np.interp(pressure_time[i], time_range, sol_pressure))
+
+    misfit_P = [] # initialises misfit array
+    # calculates the misfit for all the points
+    for i in range(len(P_Result)):
+        misfit_P.append(pressure[i] - P_Result[i])
+    # plots the misfit for the Presssure Solution
+    f, ax = plt.subplots(1, 1)
+    ax.plot(pressure_time,misfit_P, 'rx')
+    ax.axhline(0, color = 'black', linestyle = '--')
+    ax.set_ylabel('Pressure [MPa]')
+    ax.set_xlabel('Time [years]')
+    ax.set_title("Initial Guess Fit Pressure LPM Model")
+    plt.show()
     return best_A,best_B,best_C
 
 if __name__ == "__main__":
