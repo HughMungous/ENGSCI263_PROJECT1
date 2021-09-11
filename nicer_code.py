@@ -948,12 +948,13 @@ def MSE():
     print(txt.format("B",best_B))
     print(txt.format("C",best_C))
     print("Mean Squared Error is {}".format(MSPE_best))
-    f, ax2 = plt.subplots(1, 1)
-    ax2.plot(time_range,sol_pressure, 'b', label = 'a = ' + str(best_A) + '\n' + 'b = ' + str(best_B) + '\n' + 'c = ' + str(best_C))
-    ax2.plot(time,Pressure, 'r', label = 'DATA')
-    ax2.set_title("Best Initial Guess for Parameters. Mean Squared Error = " + str(MSPE_best))
-    ax2.legend()
-    plt.show()
+    f, (ax1,ax2) = plt.subplots(1, 2)
+    ax1.set_ylabel('Pressure [MPa]')
+    ax1.set_xlabel('Time [years]')
+    ax1.plot(time_range,sol_pressure, 'b', label = 'a = ' + str(best_A) + '\n' + 'b = ' + str(best_B) + '\n' + 'c = ' + str(best_C))
+    ax1.plot(time,Pressure, 'r', label = 'DATA')
+    ax1.set_title("Initial Guess. MSE = {:.2f}".format(MSPE_best))
+    ax1.legend()
 
     pressure_time = np.genfromtxt('data/cs_p.txt', skip_header = 1,delimiter = ',', usecols = 0)
     pressure = np.genfromtxt('data/cs_p.txt', skip_header = 1,delimiter = ',', usecols = 1)
@@ -968,12 +969,11 @@ def MSE():
     for i in range(len(P_Result)):
         misfit_P.append(pressure[i] - P_Result[i])
     # plots the misfit for the Presssure Solution
-    f, ax = plt.subplots(1, 1)
-    ax.plot(pressure_time,misfit_P, 'rx')
-    ax.axhline(0, color = 'black', linestyle = '--')
-    ax.set_ylabel('Pressure [MPa]')
-    ax.set_xlabel('Time [years]')
-    ax.set_title("Initial Guess Fit Pressure LPM Model")
+    ax2.plot(pressure_time,misfit_P, 'rx')
+    ax2.axhline(0, color = 'black', linestyle = '--')
+    ax2.set_ylabel('Pressure [MPa]')
+    ax2.set_xlabel('Time [years]')
+    ax2.set_title("Initial Guess Fit Pressure LPM Model")
     plt.show()
     return best_A,best_B,best_C
 
