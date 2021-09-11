@@ -910,9 +910,9 @@ def Uncertainty():
 def MSE():
     time = tp
     Pressure = pp
-    A = np.linspace(0.001,0.01,100)
-    B = np.linspace(0.01,0.1,100)
-    C = np.linspace(0.001,0.01,100)
+    A = np.linspace(0.001,0.01,10)
+    B = np.linspace(0.01,0.1,10)
+    C = np.linspace(0.001,0.01,10)
     dt = 0.5
     MSPE_best = float('inf')
     best_A = 1000
