@@ -212,21 +212,21 @@ def SoluteBenchmark(C0, qCO2, d, M0, time, dt):
         analytical : np.array
             Analytical Solution of the Solute ODE.
 	"""
-    analytical = [] # initialsiing the analytical array
-    # calculating the analytical solution at differnt time steps
-    for i in range(len(time)):
-        k = qCO2/M0
-        L = (k*C0 - k)/(k + d)
-        anaC = (k + (d * C0))/(k + d) + L/(np.exp(k*time[i]+d*time[i]))
-        analytical.append(anaC)
-    # solving the Solute ODE numerically using improved euler
-    nt = int(np.ceil((time[-1]-time[0])/dt))
-    ts = time[0]+np.arange(nt+1)*dt
-    ys = ts*0. # initialising the solution array
+    ys, analytical = 0.*time, 0.*time # initialsiing the numerical and analytical arrays
+    
+    # calculating terms used in the analytical solution
+    k = qCO2/M0  
+    L = (k*C0 - k)/(k + d)
+
+    analytical[0] = (k + (d * C0))/(k + d) + L/(np.exp(time[0]*(k+d)))
     ys[0] = cc[0]
+
     pars = [d,M0] # parameters used by the Solute ODE
-    for i in range(nt):
-        ys[i+1] = improved_euler_step(SoluteModel, ts[i], ys[i], dt, pars) # performing improved euler solution
+
+    for i in range(len(time)-1):
+        analytical[i+1] = (k + (d * C0))/(k + d) + L/(np.exp(time[i+1]*(k+d))) # calculating the analytical solution at differnt time steps
+        ys[i+1] = improved_euler_step(SoluteModel, time[i], ys[i], dt, pars)   # solving the Solute ODE numerically using improved euler
+    
     return ys, analytical # returning numerical and analytical solutions
 
 def PressureBenchmark(P0, a, b , c, q0, time, dt):
@@ -255,20 +255,20 @@ def PressureBenchmark(P0, a, b , c, q0, time, dt):
         analytical : np.array
             Analytical Solution of the Pressure ODE.
 	"""
-    analytical = [] # initialising analytical array
+    
     # solves the analytical solution at different time points
-    for i in range(len(time)):
-        P = P0 + ((-a*q0)/b)*(1-np.exp(-b*time[i]))
-        analytical.append(P)
+
     # finds the numerical solution to the ODE
-    nt = int(np.ceil((time[-1]-time[0])/dt))
-    ts = time[0]+np.arange(nt+1)*dt
-    ys = ts*0.
+    ys, analytical = 0.*time, 0.*time # initialising analytical array
+
+    analytical[0] = P0 + ((-a*q0)/b)*(1-np.exp(-b*time[0]))
     ys[0] = P0 # sets initial value of the solution
+
     pars = [a,b,c] # parameters to pass into the model
     # solves ODE using improved euler method 
-    for i in range(nt):
-        ys[i+1] = improved_euler_step(PressureModel, ts[i], ys[i], dt, pars)
+    for i in range(len(time)-1):
+        analytical[i+1] = P0 + ((-a*q0)/b)*(1-np.exp(-b*time[i+1]))
+        ys[i+1] = improved_euler_step(PressureModel, time[i], ys[i], dt, pars)
     return ys, analytical # retunrs numerical and analytical solutions
 
 def PlotMisfit():
