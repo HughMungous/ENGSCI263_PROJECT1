@@ -6,8 +6,6 @@ from scipy.optimize import curve_fit
 
 # define an error tolerance
 tol = 1.e-6
-# Defines some global variables 
-Model_Fit()
 
 # Testing the improved_euler_step function
 if False:
@@ -73,11 +71,12 @@ if False:
     assert(np.abs(sk3+1.029) < tol)
 
 # Testing SolvePressureODE
-if True:
-    # Just an absolute mess of global variables that I can't overwrite, but the PressureBenchmark function can be used to test various inputs
+if False:
+    # the PressureBenchmark function has been written to test SolvePressureODE against a known analytic solution, serving the purpose of unit testing
     pass
+    
 
 # Testing SolveSoluteODE
-if True:
-    # Similarly all global variables that I can't overwrite, but the SoluteBenchmark function can be used to test various inputs
+if False:
+    # the SoluteBenchmark function has been written to test various SolveSoluteODE against a known analytic solution, serving the purpose of unit testing
     pass
